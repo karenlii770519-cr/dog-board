@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>遊戲任務看板</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg: #f5f5f7; --panel: #ffffff; --ink: #1d1d1f; --muted: #86868b; --line: rgba(0,0,0,.08);
+    --col: rgba(0,0,0,.035); --accent: #0071e3; --late: #ff3b30; --soon: #ff9500; --ok: #34c759;
+    --glass: rgba(245,245,247,.72); --shadow: 0 2px 6px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --seg: rgba(118,118,128,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000; --panel: #1c1c1e; --ink: #f5f5f7; --muted: #8e8e93; --line: rgba(255,255,255,.1);
+      --col: rgba(255,255,255,.04); --accent: #2997ff; --late: #ff453a; --soon: #ff9f0a; --ok: #30d158;
+      --glass: rgba(22,22,23,.72); --shadow: 0 2px 10px rgba(0,0,0,.5); --seg: rgba(118,118,128,.24);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+    font: 15px/1.47 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Noto Sans TC", "Helvetica Neue", sans-serif;
+    letter-spacing: -.01em; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: .5px solid var(--line); padding: 22px 32px 14px; }
+  .top { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; max-width: 1400px; margin: 0 auto; }
+  h1 { font: 700 34px/1.1 -apple-system, "SF Pro Display", "PingFang TC", sans-serif; margin: 0; letter-spacing: -.02em; }
+  .hello { color: var(--muted); font-size: 15px; padding-bottom: 4px; }
+  .spacer { flex: 1; }
+  input[type=search] { border: 0; background: var(--seg); color: var(--ink); border-radius: 10px;
+    padding: 8px 12px; width: 240px; max-width: 100%; font: inherit; outline: none; }
+  input[type=search]:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+  button { font: inherit; cursor: pointer; }
+  .ghost { border: 0; background: var(--seg); color: var(--accent); border-radius: 980px; padding: 7px 14px; font-weight: 500; }
+  .people { display: flex; gap: 2px; flex-wrap: wrap; margin: 16px auto 0; max-width: 1400px;
+    background: var(--seg); border-radius: 10px; padding: 2px; width: fit-content; }
+  .chip { border: 0; background: transparent; color: var(--ink); border-radius: 8px;
+    padding: 6px 14px; display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; transition: background .2s; }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .chip .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .chip.on { background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.04); }
+  .stats { display: flex; gap: 28px; margin: 14px auto 0; color: var(--muted); font-size: 13px; flex-wrap: wrap; max-width: 1400px; }
+  .stats b { color: var(--ink); font-size: 20px; font-weight: 600; margin-left: 6px; font-variant-numeric: tabular-nums; }
+  .stats .late b { color: var(--late); }
+  .stats .soon b { color: var(--soon); }
+  main { padding: 24px 32px 60px; max-width: 1464px; margin: 0 auto; }
+  .board { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 20px; align-items: start; }
+  .col { background: var(--col); border-radius: 18px; padding: 12px; min-height: 140px; }
+  .col h2 { font-size: 13px; font-weight: 600; margin: 4px 6px 12px; display: flex; justify-content: space-between;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .card { background: var(--panel); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: var(--shadow);
+    cursor: pointer; position: relative; transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s; }
+  .card::before { content: ""; position: absolute; left: 16px; top: 16px; width: 8px; height: 8px; border-radius: 50%; background: var(--c, #999); }
+  .card:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 4px 12px rgba(0,0,0,.06), 0 16px 32px rgba(0,0,0,.08); }
+  .card:active { transform: scale(.98); }
+  .card .t { font-weight: 600; font-size: 16px; padding-left: 16px; line-height: 1.3; }
+  .card .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .card .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
+  .tag { border-radius: 980px; padding: 2px 9px; background: var(--seg); color: var(--muted); font-weight: 500; }
+  .tag.late { background: color-mix(in srgb, var(--late) 14%, transparent); color: var(--late); }
+  .tag.soon { background: color-mix(in srgb, var(--soon) 16%, transparent); color: var(--soon); }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 22px 0; }
+  .more { width: 100%; margin-top: 4px; }
+  .shade { position: fixed; inset: 0; background: rgba(0,0,0,.3); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 10;
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  .drawer { position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(460px, calc(100% - 24px)); background: var(--panel);
+    border-radius: 22px; box-shadow: 0 24px 64px rgba(0,0,0,.25); z-index: 11; transform: translateX(calc(100% + 24px));
+    transition: transform .4s cubic-bezier(.2,.8,.2,1); overflow-y: auto; padding: 26px; }
+  .open .shade { opacity: 1; pointer-events: auto; } .open .drawer { transform: none; }
+  .drawer h3 { margin: 0 0 4px; font: 700 24px/1.2 -apple-system, "SF Pro Display", "PingFang TC", sans-serif; letter-spacing: -.02em; }
+  .drawer .who { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .group { background: var(--col); border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
+  .field { padding: 11px 14px; border-bottom: .5px solid var(--line); }
+  .field:last-child { border-bottom: 0; }
+  .field .k { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .field .v { white-space: pre-wrap; word-break: break-word; }
+  .field a { color: var(--accent); text-decoration: none; }
+  .actions { display: flex; gap: 2px; margin: 4px 0 20px; background: var(--seg); border-radius: 10px; padding: 2px; }
+  .actions button { flex: 1; border: 0; background: transparent; color: var(--ink); border-radius: 8px; padding: 8px 4px; font-size: 14px; font-weight: 500; }
+  .actions button.cur { background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .actions button.cur.done { color: var(--ok); }
+  details summary { color: var(--accent); font-size: 14px; cursor: pointer; list-style: none; }
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: var(--glass); color: var(--ink);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 8px 32px rgba(0,0,0,.18); padding: 10px 18px; border-radius: 980px; display: none; z-index: 20; font-weight: 500; }
+  .loading { padding: 80px; text-align: center; color: var(--muted); }
+  .login { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center; }
+  .login h1 { font-size: 40px; }
+  .login p { color: var(--muted); margin: 0; }
+  .app[hidden], .login[hidden] { display: none; }
+  @media (max-width: 900px) {
+    header { padding: 16px 16px 12px; } main { padding: 16px 16px 40px; }
+    h1 { font-size: 28px; }
+    .board { grid-template-columns: 1fr; }
+    input[type=search] { width: 100%; }
+    .people { width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  }
+</style>
+</head>
+<body>
+<section class="login" id="login">
+  <h1>遊戲任務看板</h1>
+  <p>請用公司 Google 帳號（@offerme2.com）登入</p>
+  <div id="gbtn"></div>
+  <p id="loginMsg" style="color:var(--late)"></p>
+</section>
+<div class="app" id="app" hidden>
+<header>
+  <div class="top">
+    <h1>遊戲任務看板</h1>
+    <span class="hello" id="hello"></span>
+    <span class="spacer"></span>
+    <button class="ghost" id="logout">登出</button>
+    <input type="search" id="q" placeholder="搜尋客戶、類型、備註…">
+    <button class="ghost" id="reload" title="重新整理">更新 <span id="at"></span></button>
+  </div>
+  <div class="people" id="people"></div>
+  <div class="stats" id="stats"></div>
+</header>
+<main><div class="loading" id="board">載入中…</div></main>
+<div class="shade" id="shade"></div>
+<aside class="drawer" id="drawer"></aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 設定 =====
+const CLIENT_ID = '640400742388-6l54t8snipni2idi4125kmk5pjvaki76.apps.googleusercontent.com';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz1RDARfY94PHB3gZFwCx-GvxNYlBxk9T-dZJUxFmAbYNphZ3xdWU9xzNucqnZodnbE/exec';
+// ================
+let TOKEN = null;
+try { TOKEN = sessionStorage.getItem('idToken'); } catch (e) {}
+let DATA = null, WHO = 'ALL', SHOW_ALL_DONE = false;
+const $ = id => document.getElementById(id);
+const esc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+const DONE = '✅ 已完成';
+const COL_NAMES = { '待處理': '待處理', '進行中': '進行中', '待審': '待審', [DONE]: '已完成' };
+
+function load() {
+  $('at').textContent = '…';
+  clearTimeout(load.slow);
+  load.slow = setTimeout(() => { if (!DATA) showError('等太久了，按右上角「更新」再試一次'); }, 25000);
+  api({ action: 'board' }).then(render, fail);
+}
+// GAS 用 text/plain 收 JSON，避免跨網域預檢
+async function api(body) {
+  const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, token: TOKEN }) });
+  const out = await res.json();
+  if (!out.ok) {
+    if (/登入|過期|來源|只限/.test(out.error)) { signOut(out.error); throw new Error(out.error); }
+    throw new Error(out.error);
+  }
+  return out.data;
+}
+function onSignIn(resp) {
+  TOKEN = resp.credential;
+  try { sessionStorage.setItem('idToken', TOKEN); } catch (e) {}
+  $('login').hidden = true; $('app').hidden = false;
+  load();
+}
+function signOut(msg) {
+  TOKEN = null; DATA = null;
+  try { sessionStorage.removeItem('idToken'); } catch (e) {}
+  $('app').hidden = true; $('login').hidden = false;
+  $('loginMsg').textContent = msg || '';
+  if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
+}
+function initLogin() {
+  if (!window.google || !google.accounts) return setTimeout(initLogin, 100);
+  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onSignIn, hd: 'offerme2.com', auto_select: true, ux_mode: 'popup' });
+  google.accounts.id.renderButton($('gbtn'), { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', locale: 'zh-TW' });
+  if (!TOKEN) google.accounts.id.prompt();
+}
+function fail(e) { if (!TOKEN) return; showError(e && e.message || e); $('at').textContent = ''; }
+function showError(msg) { $('board').className = 'loading'; $('board').textContent = '出錯了：' + msg; }
+window.onerror = (msg, src, line) => showError(msg + '（第 ' + line + ' 行）');
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
+
+// 交期：抓第一個日期（2026/10/15、10/15、8/12第一批…），沒有年份就當今年
+function dueDate(s) {
+  const m = String(s || '').match(/(?:(\d{4})[\/\-.])?(\d{1,2})[\/\-.](\d{1,2})/);
+  if (!m) return null;
+  const now = new Date();
+  const d = new Date(m[1] ? +m[1] : now.getFullYear(), +m[2] - 1, +m[3]);
+  return isNaN(d) ? null : d;
+}
+function dueInfo(t) {
+  if (t['狀態'] === DONE) return null;
+  const d = dueDate(t['交期']);
+  if (!d) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((d - today) / 864e5);
+  if (days < 0) return { cls: 'late', text: `逾期 ${-days} 天` };
+  if (days === 0) return { cls: 'late', text: '今天到期' };
+  if (days <= 3) return { cls: 'soon', text: `${days} 天後到期` };
+  return null;
+}
+function title(t) { return t['客戶'] || (t['備註'] || t['原始訊息'] || '').split('\n')[0].slice(0, 40) || '(未命名)'; }
+function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
+
+function render(data) {
+  if (!data) return showError('後台沒有回傳資料');
+  DATA = data;
+  if (WHO === 'ALL' && data.me && !render.once) WHO = data.me;
+  render.once = true;
+  $('hello').textContent = data.me ? `嗨 ${data.me}` : (data.email ? data.email : '');
+  $('at').textContent = data.loadedAt + '・' + data.tasks.length + ' 筆';
+  draw();
+}
+
+function visible() {
+  const q = $('q').value.trim().toLowerCase();
+  return DATA.tasks.filter(t => (WHO === 'ALL' || t.code === WHO) &&
+    (!q || ['客戶', '案件類型', '備註', '原始訊息', '編號', '發起人'].some(k => String(t[k]).toLowerCase().includes(q))));
+}
+
+function draw() {
+  const open = DATA.tasks.filter(t => t['狀態'] !== DONE);
+  $('people').innerHTML = [{ code: 'ALL', color: 'transparent' }].concat(DATA.members).map(m => {
+    const n = m.code === 'ALL' ? open.length : open.filter(t => t.code === m.code).length;
+    const label = m.code === 'ALL' ? '全部' : m.code === 'other' ? '未指派' : m.code;
+    return `<button class="chip ${WHO === m.code ? 'on' : ''}" data-who="${m.code}">
+      ${m.code === 'ALL' ? '' : `<span class="dot" style="background:${m.color}"></span>`}${label}<span class="n">${n}</span></button>`;
+  }).join('');
+
+  const tasks = visible();
+  const mine = tasks.filter(t => t['狀態'] !== DONE);
+  const late = mine.filter(t => (dueInfo(t) || {}).cls === 'late').length;
+  const soon = mine.filter(t => (dueInfo(t) || {}).cls === 'soon').length;
+  $('stats').innerHTML = `<span>未完成 <b>${mine.length}</b></span><span class="late">逾期／今天 <b>${late}</b></span><span class="soon">3 天內到期 <b>${soon}</b></span>`;
+
+  const since = Date.now() - 14 * 864e5;
+  $('board').className = 'board';
+  $('board').innerHTML = DATA.statuses.map(st => {
+    let list = tasks.filter(t => t['狀態'] === st || (st === '待處理' && !DATA.statuses.includes(t['狀態'])));
+    if (st === DONE) {
+      list.sort((a, b) => String(b['完成時間']).localeCompare(String(a['完成時間'])));
+      if (!SHOW_ALL_DONE) list = list.filter(t => { const d = new Date(String(t['完成時間']).replace(/\//g, '-')); return isNaN(d) || d >= since; });
+    } else {
+      list.sort((a, b) => (dueDate(a['交期']) || 9e15) - (dueDate(b['交期']) || 9e15));
+    }
+    const cards = list.map(t => {
+      const due = dueInfo(t);
+      return `<div class="card" style="--c:${color(t.code)}" data-k="${t.code}|${t.row}">
+        <div class="t">${esc(title(t))}</div>
+        <div class="sub">${esc([t['案件類型'], t['張數'] && (String(t['張數']).match(/張/) ? t['張數'] : t['張數'] + ' 張')].filter(Boolean).join('・'))}</div>
+        <div class="meta">
+          ${due ? `<span class="tag ${due.cls}">${due.text}</span>` : ''}
+          ${t['交期'] ? `<span class="tag">交期 ${esc(t['交期'])}</span>` : ''}
+          ${WHO === 'ALL' ? `<span class="tag">${t.code === 'other' ? '未指派' : t.code}</span>` : ''}
+          <span class="tag">#${esc(t['編號'])}</span>
+        </div></div>`;
+    }).join('') || '<div class="empty">沒有</div>';
+    const more = st === DONE ? `<button class="ghost more" id="moreDone">${SHOW_ALL_DONE ? '只看近 14 天' : '看全部已完成'}</button>` : '';
+    return `<section class="col"><h2><span>${COL_NAMES[st]}</span><span>${list.length}</span></h2>${cards}${more}</section>`;
+  }).join('');
+}
+
+function openCard(key) {
+  const t = DATA.tasks.find(x => `${x.code}|${x.row}` === key);
+  if (!t) return;
+  const fields = ['案件類型', '張數', '交期', '規格', '素材位置', '簡報路徑', '備註', '發起人', '派工時間', '完成時間']
+    .filter(k => t[k]).map(k => `<div class="field"><div class="k">${k}</div><div class="v">${linkify(t[k])}</div></div>`).join('');
+  $('drawer').innerHTML = `
+    <button class="ghost" id="close" style="float:right">關閉</button>
+    <h3>${esc(title(t))}</h3>
+    <div class="who">#${esc(t['編號'])}・${t.code === 'other' ? '未指派' : t.code}</div>
+    <div class="actions">${DATA.statuses.map(s => `<button data-st="${s}" class="${t['狀態'] === s ? 'cur' : ''} ${s === DONE ? 'done' : ''}">${COL_NAMES[s]}</button>`).join('')}</div>
+    <div class="group">${fields}</div>
+    <details><summary>顯示原始訊息</summary><div class="v" style="margin-top:6px">${linkify(t['原始訊息'])}</div></details>`;
+  $('drawer').dataset.k = key;
+  document.body.classList.add('open');
+}
+function closeCard() { document.body.classList.remove('open'); }
+
+function setStatus(st) {
+  const t = DATA.tasks.find(x => `${x.code}|${x.row}` === $('drawer').dataset.k);
+  if (!t || t['狀態'] === st) return;
+  toast('更新中…');
+  api({ action: 'status', code: t.code, row: t.row, no: t['編號'], status: st })
+    .then(d => { closeCard(); render(d); toast(`#${t['編號']} → ${COL_NAMES[st]}`); }, e => toast('沒改成功：' + e.message));
+}
+
+document.addEventListener('click', e => {
+  const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; return draw(); }
+  const card = e.target.closest('.card'); if (card) return openCard(card.dataset.k);
+  const st = e.target.closest('[data-st]'); if (st) return setStatus(st.dataset.st);
+  if (e.target.id === 'close' || e.target.id === 'shade') return closeCard();
+  if (e.target.id === 'moreDone') { SHOW_ALL_DONE = !SHOW_ALL_DONE; return draw(); }
+  if (e.target.closest('#reload')) return load();
+  if (e.target.id === 'logout') return signOut();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCard(); });
+$('q').addEventListener('input', () => DATA && draw());
+setInterval(() => TOKEN && document.visibilityState === 'visible' && load(), 2 * 60 * 1000);
+initLogin();
+if (TOKEN) { $('login').hidden = true; $('app').hidden = false; load(); }
+</script>
+</body>
+</html>
