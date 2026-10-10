@@ -62,6 +62,8 @@
   .tag { border-radius: 980px; padding: 2px 9px; background: var(--seg); color: var(--muted); font-weight: 500; }
   .tag.late { background: color-mix(in srgb, var(--late) 14%, transparent); color: var(--late); }
   .tag.soon { background: color-mix(in srgb, var(--soon) 16%, transparent); color: var(--soon); }
+  .col.over { background: color-mix(in srgb, var(--accent) 12%, var(--col)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent); }
+  .card { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 22px 0; }
   .more { width: 100%; margin-top: 4px; }
   .shade { position: fixed; inset: 0; background: rgba(0,0,0,.3); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 10;
@@ -256,7 +258,7 @@ function draw() {
         </div></div>`;
     }).join('') || '<div class="empty">沒有</div>';
     const more = st === DONE ? `<button class="ghost more" id="moreDone">${SHOW_ALL_DONE ? '只看近 14 天' : '看全部已完成'}</button>` : '';
-    return `<section class="col"><h2><span>${COL_NAMES[st]}</span><span>${list.length}</span></h2>${cards}${more}</section>`;
+    return `<section class="col" data-col="${st}"><h2><span>${COL_NAMES[st]}</span><span>${list.length}</span></h2>${cards}${more}</section>`;
   }).join('');
 }
 
@@ -279,15 +281,72 @@ function closeCard() { document.body.classList.remove('open'); }
 
 function setStatus(st) {
   const t = DATA.tasks.find(x => `${x.code}|${x.row}` === $('drawer').dataset.k);
-  if (!t || t['狀態'] === st) return;
-  toast('更新中…');
-  api({ action: 'status', code: t.code, row: t.row, no: t['編號'], status: st })
-    .then(d => { closeCard(); render(d); toast(`#${t['編號']} → ${COL_NAMES[st]}`); }, e => toast('沒改成功：' + e.message));
+  if (t) { closeCard(); changeStatus(t, st); }
 }
+// 先在畫面上移過去，背景再寫進試算表；失敗就移回來
+function changeStatus(t, st) {
+  if (!t || t['狀態'] === st) return;
+  const before = t['狀態'];
+  t['狀態'] = st; draw();
+  toast(`#${t['編號']} → ${COL_NAMES[st]}`);
+  api({ action: 'status', code: t.code, row: t.row, no: t['編號'], status: st })
+    .then(render, e => { t['狀態'] = before; draw(); toast('沒改成功：' + e.message); });
+}
+
+// ===== 拖曳卡片換欄：滑鼠直接拖；手機長按一下再拖 =====
+let drag = null;
+document.addEventListener('pointerdown', e => {
+  const card = e.target.closest('.card');
+  if (!card || e.button > 0) return;
+  drag = { card, x: e.clientX, y: e.clientY, id: e.pointerId, on: false, touch: e.pointerType !== 'mouse' };
+  if (drag.touch) drag.timer = setTimeout(() => drag && startDrag(e.clientX, e.clientY), 350);
+});
+function startDrag(x, y) {
+  drag.on = true;
+  const r = drag.card.getBoundingClientRect();
+  drag.dx = x - r.left; drag.dy = y - r.top;
+  drag.ghost = drag.card.cloneNode(true);
+  Object.assign(drag.ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px',
+    zIndex: 30, pointerEvents: 'none', transform: 'rotate(2deg) scale(1.03)', boxShadow: '0 20px 40px rgba(0,0,0,.2)' });
+  document.body.appendChild(drag.ghost);
+  drag.card.style.opacity = '.35';
+  document.body.style.userSelect = 'none';
+  if (navigator.vibrate) navigator.vibrate(10);
+}
+document.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const far = Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6;
+  if (!drag.on) {
+    if (drag.touch) { if (far) { clearTimeout(drag.timer); drag = null; } return; } // 手機沒長按就是在捲動
+    if (!far) return;
+    startDrag(e.clientX, e.clientY);
+  }
+  e.preventDefault();
+  drag.ghost.style.left = e.clientX - drag.dx + 'px';
+  drag.ghost.style.top = e.clientY - drag.dy + 'px';
+  document.querySelectorAll('.col').forEach(c => c.classList.remove('over'));
+  const col = document.elementFromPoint(e.clientX, e.clientY)?.closest('.col');
+  if (col) col.classList.add('over');
+}, { passive: false });
+document.addEventListener('touchmove', e => { if (drag && drag.on) e.preventDefault(); }, { passive: false });
+function endDrag(e) {
+  if (!drag) return;
+  clearTimeout(drag.timer);
+  const d = drag; drag = null;
+  if (!d.on) return;
+  d.ghost.remove(); d.card.style.opacity = ''; document.body.style.userSelect = '';
+  document.querySelectorAll('.col').forEach(c => c.classList.remove('over'));
+  d.justDragged = true; endDrag.last = Date.now();
+  const col = e && document.elementFromPoint(e.clientX, e.clientY)?.closest('.col');
+  const t = DATA.tasks.find(x => `${x.code}|${x.row}` === d.card.dataset.k);
+  if (col && t) changeStatus(t, col.dataset.col);
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', () => endDrag(null));
 
 document.addEventListener('click', e => {
   const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; return draw(); }
-  const card = e.target.closest('.card'); if (card) return openCard(card.dataset.k);
+  const card = e.target.closest('.card'); if (card) { if (Date.now() - (endDrag.last || 0) < 300) return; return openCard(card.dataset.k); }
   const st = e.target.closest('[data-st]'); if (st) return setStatus(st.dataset.st);
   if (e.target.id === 'close' || e.target.id === 'shade') return closeCard();
   if (e.target.id === 'moreDone') { SHOW_ALL_DONE = !SHOW_ALL_DONE; return draw(); }
