@@ -346,8 +346,10 @@ function draw() {
 function openCard(key) {
   const t = DATA.tasks.find(x => `${x.code}|${x.row}` === key);
   if (!t) return;
-  const fields = ['案件類型', '張數', '交期', '規格', '素材位置', '簡報路徑', '備註', '發起人', '派工時間', '完成時間']
-    .filter(k => t[k]).map(k => `<div class="field"><div class="k">${k}</div><div class="v">${linkify(t[k])}</div></div>`).join('');
+  // 規格以下不拆欄位：直接顯示原始訊息裡「客戶／類型／張數／交期」以外的內容（Karen 2026-10-11）
+  const row = (k, v) => v ? `<div class="field"><div class="k">${k}</div><div class="v">${linkify(v)}</div></div>` : '';
+  const fields = ['案件類型', '張數', '交期'].map(k => row(k, t[k])).join('') + row('需求內容', detailText(t))
+    + ['發起人', '派工時間', '完成時間'].map(k => row(k, t[k])).join('');
   $('drawer').innerHTML = `
     <button class="ghost" id="close" style="float:right">關閉</button>
     <h3>${esc(title(t))}</h3>
@@ -357,6 +359,14 @@ function openCard(key) {
     <details><summary>顯示原始訊息</summary><div class="v" style="margin-top:6px">${linkify(t['原始訊息'])}</div></details>`;
   $('drawer').dataset.k = key;
   document.body.classList.add('open');
+}
+function detailText(t) {
+  const HEAD = /^\s*(客戶|案件類型|類型|專案|需求張數|張數|需求時間|截止時間|交期|發起人|需求人|申請人)\s*[：:]/;
+  const lines = String(t['原始訊息'] || '').split(/\n/)
+    .map(l => l.replace(/^\s*(@\S+\s*)+/, '').replace(/^\s*[+＋]\s*新規\s*/, '').replace(/^\s*潤稿\s*/, ''))
+    .filter(l => l.trim() && !HEAD.test(l));
+  if (lines.length) return lines.join('\n').trim();
+  return ['規格', '素材位置', '簡報路徑', '備註'].map(k => t[k]).filter(Boolean).join('\n');
 }
 function closeCard() { document.body.classList.remove('open'); }
 
