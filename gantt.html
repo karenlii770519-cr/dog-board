@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>遊戲任務甘特圖</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --bg: #f5f5f7; --panel: #ffffff; --ink: #1d1d1f; --muted: #86868b; --line: rgba(0,0,0,.08);
@@ -204,20 +203,12 @@
 </style>
 </head>
 <body>
-<section class="login" id="login">
-  <h1>遊戲任務甘特圖</h1>
-  <p class="must"><b>一定要用歐米爾公司信箱（@offerme2.com）登入</b><br>私人 Gmail 會被擋在外面。<br>如果瀏覽器同時登了好幾個 Google 帳號，請在選帳號時選公司的那一個。</p>
-  <div id="gbtn"></div>
-  <p id="loginMsg" style="color:var(--late)"></p>
-</section>
-<div class="app" id="app" hidden>
+<div class="app" id="app">
 <header>
   <div class="top">
     <h1>遊戲任務甘特圖</h1>
-    <span class="hello" id="hello"></span>
     <span class="spacer"></span>
     <a class="ghost" href="./" style="text-decoration:none">🗂 回看板</a>
-    <button class="ghost" id="logout">登出</button>
     <button class="ghost" id="reload" title="重新整理">更新 <span id="at"></span></button>
   </div>
   <div class="people" id="people"></div>
@@ -232,11 +223,8 @@
 <div class="toast" id="toast"></div>
 <script>
 // ===== 設定 =====
-const CLIENT_ID = '640400742388-6l54t8snipni2idi4125kmk5pjvaki76.apps.googleusercontent.com';
 const API_URL = 'https://script.google.com/macros/s/AKfycbz1RDARfY94PHB3gZFwCx-GvxNYlBxk9T-dZJUxFmAbYNphZ3xdWU9xzNucqnZodnbE/exec';
 // ================
-let TOKEN = null;
-try { TOKEN = sessionStorage.getItem('idToken'); } catch (e) {}
 let DATA = null, WHO = 'ALL', SPAN = 35;
 const $ = id => document.getElementById(id);
 const esc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -248,38 +236,16 @@ function load() {
   $('at').textContent = '…';
   clearTimeout(load.slow);
   load.slow = setTimeout(() => { if (!DATA) showError('等太久了，按右上角「更新」再試一次'); }, 25000);
-  api({ action: 'board' }).then(render, fail);
+  api({ action: 'gantt' }).then(render, fail);
 }
-// GAS 用 text/plain 收 JSON，避免跨網域預檢
+// 公開版：不用登入，API 只回設計師、單號、類型、日期（不含客戶、需求內容）
 async function api(body) {
-  const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, token: TOKEN }) });
+  const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
   const out = await res.json();
-  if (!out.ok) {
-    if (/登入|過期|來源|只限/.test(out.error)) { signOut(out.error); throw new Error(out.error); }
-    throw new Error(out.error);
-  }
+  if (!out.ok) throw new Error(out.error);
   return out.data;
 }
-function onSignIn(resp) {
-  TOKEN = resp.credential;
-  try { sessionStorage.setItem('idToken', TOKEN); } catch (e) {}
-  $('login').hidden = true; $('app').hidden = false;
-  load();
-}
-function signOut(msg) {
-  TOKEN = null; DATA = null;
-  try { sessionStorage.removeItem('idToken'); } catch (e) {}
-  $('app').hidden = true; $('login').hidden = false;
-  $('loginMsg').textContent = msg || '';
-  if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
-}
-function initLogin() {
-  if (!window.google || !google.accounts) return setTimeout(initLogin, 100);
-  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onSignIn, hd: 'offerme2.com', auto_select: true, ux_mode: 'popup' });
-  google.accounts.id.renderButton($('gbtn'), { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', locale: 'zh-TW' });
-  if (!TOKEN) google.accounts.id.prompt();
-}
-function fail(e) { if (!TOKEN) return; showError(e && e.message || e); $('at').textContent = ''; }
+function fail(e) { showError(e && e.message || e); $('at').textContent = ''; }
 function showError(msg) { $('gantt').innerHTML = '<div class="loading">出錯了：' + esc(msg) + '</div>'; }
 window.onerror = (msg, src, line) => showError(msg + '（第 ' + line + ' 行）');
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
@@ -303,7 +269,7 @@ function dueInfo(t) {
   if (days <= 3) return { cls: 'soon', text: `${days} 天後到期` };
   return null;
 }
-function title(t) { return t['客戶'] || (t['備註'] || t['原始訊息'] || '').split('\n')[0].slice(0, 40) || '(未命名)'; }
+function title(t) { return (t['案件類型'] || '工單') + ' #' + t['編號']; }
 function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
 
 
@@ -315,7 +281,6 @@ const ymd = d => `${d.getMonth() + 1}/${d.getDate()}`;
 function render(data) {
   if (!data) return showError('後台沒有回傳資料');
   DATA = data;
-  $('hello').textContent = data.me ? `嗨 ${data.me}` : (data.email || '');
   $('at').textContent = data.loadedAt;
   draw();
 }
@@ -353,9 +318,9 @@ function draw() {
       const a = col(s), b = Math.max(a + 1, col(new Date(+e + DAY)));
       let late = '';
       if (!fin && due && due < today) { const la = col(new Date(+due + DAY)), lb = col(new Date(+today + DAY)); if (lb > la) late = `<div class="late" style="left:${la * W}px;width:${(lb - la) * W - 2}px"></div>`; }
-      const tip = esc(`#${t['編號']} ${title(t)}｜${t['案件類型'] || ''}\n發案 ${t['發案時間'] || t['派工時間']}\n交期 ${t['交期'] || '—'}${fin ? '\n完成 ' + t['完成時間'] : ''}\n狀態 ${COL_NAMES[t['狀態']] || t['狀態']}`);
+      const tip = esc(`${title(t)}\n發案 ${t['發案時間'] || t['派工時間']}\n交期 ${t['交期'] || '—'}${fin ? '\n完成 ' + t['完成時間'] : ''}\n狀態 ${COL_NAMES[t['狀態']] || t['狀態']}`);
       const cells = Array.from({ length: days }, (_, i) => { const d = new Date(+start + i * DAY); return `<div class="cell ${d.getDay() % 6 === 0 ? 'we' : ''}"></div>`; }).join('');
-      return `<div class="lab" title="${tip}"><b>${esc(title(t))}</b><small>${esc(t['案件類型'] || '')}・#${esc(t['編號'])}</small></div>`
+      return `<div class="lab" title="${tip}"><b>${esc(title(t))}</b><small>${esc(COL_NAMES[t['狀態']] || t['狀態'] || '')}</small></div>`
         + `<div style="grid-column:2 / span ${days};position:relative;display:grid;grid-template-columns:repeat(${days},${W}px)">${cells}`
         + `<div class="bar ${fin ? 'done' : ''}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
     }).join('');
@@ -369,11 +334,9 @@ document.addEventListener('click', e => {
   const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; return draw(); }
   const sp = e.target.closest('[data-span]'); if (sp) { SPAN = +sp.dataset.span; return draw(); }
   if (e.target.closest('#reload')) return load();
-  if (e.target.id === 'logout') return signOut();
 });
-setInterval(() => TOKEN && document.visibilityState === 'visible' && load(), 2 * 60 * 1000);
-initLogin();
-if (TOKEN) { $('login').hidden = true; $('app').hidden = false; load(); }
+setInterval(() => document.visibilityState === 'visible' && load(), 2 * 60 * 1000);
+load();
 </script>
 </body>
 </html>
