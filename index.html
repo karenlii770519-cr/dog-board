@@ -357,7 +357,7 @@ function openCard(key) {
     <h3>${esc(title(t))}</h3>
     <div class="who">#${esc(t['編號'])}・${t.code === 'other' ? '未指派' : t.code}</div>
     ${t.pending ? `<div class="must" style="margin:10px 0;padding:10px 12px;border:1.5px solid var(--ink)">還沒派工。請在群組打：<b>派 ${esc(t['編號'])} @設計師</b></div>` : ''}
-    <div class="actions" ${t.pending ? 'hidden' : ''}>${DATA.statuses.map(s => `<button data-st="${s}" class="${t['狀態'] === s ? 'cur' : ''} ${s === DONE ? 'done' : ''}">${COL_NAMES[s]}</button>`).join('')}</div>
+    <div class="actions" ${t.pending ? 'style="display:none"' : ''}>${DATA.statuses.map(s => `<button data-st="${s}" class="${t['狀態'] === s ? 'cur' : ''} ${s === DONE ? 'done' : ''}">${COL_NAMES[s]}</button>`).join('')}</div>
     <div class="group">${fields}</div>
     <details><summary>顯示原始訊息</summary><div class="v" style="margin-top:6px">${linkify(t['原始訊息'])}</div></details>`;
   $('drawer').dataset.k = key;
