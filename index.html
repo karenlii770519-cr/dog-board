@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>遊戲任務看板</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -12,7 +13,7 @@
     --glass: rgba(245,245,247,.72); --shadow: 0 2px 6px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
     --seg: rgba(118,118,128,.12);
   }
-  @media (prefers-color-scheme: dark) {
+  @media not all { /* 深色模式停用：Karen 2026-10-11 統一淺色 */
     :root {
       --bg: #000000; --panel: #1c1c1e; --ink: #f5f5f7; --muted: #8e8e93; --line: rgba(255,255,255,.1);
       --col: rgba(255,255,255,.04); --accent: #2997ff; --late: #ff453a; --soon: #ff9f0a; --ok: #30d158;
@@ -120,7 +121,7 @@
     --win: #ffffff; --stripe: #000000; --desk: #b8b8c8; --desk2: #9c9cb0; --hard: 2px 2px 0 #000;
     --shadow: 1px 1px 0 #000;
   }
-  @media (prefers-color-scheme: dark) {
+  @media not all { /* 深色模式停用：Karen 2026-10-11 統一淺色 */
     :root {
       --bg: #000000; --panel: #111111; --ink: #f2f2f2; --muted: #9a9a9a; --line: #f2f2f2;
       --col: #1c1c1c; --accent: #f2f2f2; --seg: #000000; --glass: #000000;
