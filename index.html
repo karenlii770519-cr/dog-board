@@ -333,6 +333,7 @@ function draw() {
         <div class="t">${esc(title(t))}</div>
         <div class="sub">${esc([t['案件類型'], t['張數'] && (String(t['張數']).match(/張/) ? t['張數'] : t['張數'] + ' 張')].filter(Boolean).join('・'))}</div>
         <div class="meta">
+          ${t.pending ? '<span class="tag late">待派工</span>' : ''}
           ${due ? `<span class="tag ${due.cls}">${due.text}</span>` : ''}
           ${t['交期'] ? `<span class="tag">交期 ${esc(t['交期'])}</span>` : ''}
           ${WHO === 'ALL' ? `<span class="tag">${t.code === 'other' ? '未指派' : t.code}</span>` : ''}
@@ -355,7 +356,8 @@ function openCard(key) {
     <button class="ghost" id="close" style="float:right">關閉</button>
     <h3>${esc(title(t))}</h3>
     <div class="who">#${esc(t['編號'])}・${t.code === 'other' ? '未指派' : t.code}</div>
-    <div class="actions">${DATA.statuses.map(s => `<button data-st="${s}" class="${t['狀態'] === s ? 'cur' : ''} ${s === DONE ? 'done' : ''}">${COL_NAMES[s]}</button>`).join('')}</div>
+    ${t.pending ? `<div class="must" style="margin:10px 0;padding:10px 12px;border:1.5px solid var(--ink)">還沒派工。請在群組打：<b>派 ${esc(t['編號'])} @設計師</b></div>` : ''}
+    <div class="actions" ${t.pending ? 'hidden' : ''}>${DATA.statuses.map(s => `<button data-st="${s}" class="${t['狀態'] === s ? 'cur' : ''} ${s === DONE ? 'done' : ''}">${COL_NAMES[s]}</button>`).join('')}</div>
     <div class="group">${fields}</div>
     <details><summary>顯示原始訊息</summary><div class="v" style="margin-top:6px">${linkify(t['原始訊息'])}</div></details>`;
   $('drawer').dataset.k = key;
@@ -377,7 +379,7 @@ function setStatus(st) {
 }
 // 先在畫面上移過去，背景再寫進試算表；失敗就移回來
 function changeStatus(t, st) {
-  if (!t || t['狀態'] === st) return;
+  if (!t || t.pending || t['狀態'] === st) return;
   const before = t['狀態'];
   t['狀態'] = st; draw();
   toast(`#${t['編號']} → ${COL_NAMES[st]}`);
@@ -390,6 +392,7 @@ let drag = null;
 document.addEventListener('pointerdown', e => {
   const card = e.target.closest('.card');
   if (!card || e.button > 0) return;
+  if (card.dataset.k.indexOf('|P') > 0) return; // 待派工的單不能拖
   drag = { card, x: e.clientX, y: e.clientY, id: e.pointerId, on: false, touch: e.pointerType !== 'mouse' };
   if (drag.touch) drag.timer = setTimeout(() => drag && startDrag(e.clientX, e.clientY), 350);
 });
