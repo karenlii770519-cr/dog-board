@@ -325,7 +325,7 @@ function draw() {
         + `<div class="bar ${fin ? 'done' : ''}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
     }).join('');
     const tl = Math.round((today - start) / DAY) * W + 230;
-    return `<section class="gwin"><h2><span><i class="dot" style="background:${m.color}"></i>${m.code === 'other' ? '未指派' : m.code}</span><span>${list.length} 張</span></h2>
+    return `<section class="gwin"><h2><span><i class="dot" style="background:${m.color}"></i>${m.code === 'other' ? '未指派' : m.code}</span><span>${list.length} 件</span></h2>
       <div class="gscroll"><div class="grid" style="grid-template-columns:230px repeat(${days},${W}px)">${head.join('')}${rows}<div class="today" style="left:${tl}px"></div></div></div></section>`;
   }).join('');
   $('gantt').innerHTML = html || '<div class="loading">這段時間沒有工單</div>';
