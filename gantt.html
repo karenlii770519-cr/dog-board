@@ -279,7 +279,7 @@ function dueInfo(t) {
   if (days <= 3) return { cls: 'soon', text: `${days} 天後到期` };
   return null;
 }
-function title(t) { return (t['名稱'] || t['案件類型'] || '工單') + ' #' + t['編號']; }
+function title(t) { return (t['名稱'] || t['案件類型'] || '修改') + ' #' + t['編號']; }
 function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
 
 
