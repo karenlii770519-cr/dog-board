@@ -196,6 +196,7 @@
   .bar, .lab[data-k] { cursor: pointer; }
   .bar { position: absolute; top: 7px; height: 20px; border: 1.5px solid var(--ink); box-shadow: 1px 1px 0 var(--ink); font-size: 11px; line-height: 17px;
     padding: 0 5px; white-space: nowrap; overflow: hidden; color: #fff; text-shadow: 0 0 2px #000; cursor: pointer; z-index: 1; }
+  .bar.rev { color: var(--ink); text-shadow: none; }
   .bar.done { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 4px, transparent 4px 8px) !important; opacity: .55; }
   .late { position: absolute; top: 7px; height: 20px; border: 1.5px dashed #e03a3e; background: repeating-linear-gradient(45deg, rgba(224,58,62,.35) 0 4px, transparent 4px 8px); }
   .today { position: absolute; top: 30px; bottom: 0; width: 2px; background: #e03a3e; z-index: 3; pointer-events: none; }
@@ -217,7 +218,7 @@
   <div class="people" id="people"></div>
   <div class="tools">
     <div class="eps" id="span"></div>
-    <div class="legend"><span><i style="background:#6495ED"></i>發案 → 交期</span><span><i style="background:#6495ED;opacity:.5"></i>已完成（發案 → 完成）</span>
+    <div class="legend"><span><i style="background:#6495ED"></i>發案 → 交期</span><span><i style="background:color-mix(in srgb, #6495ED 35%, white)"></i>修改／＋任務</span><span><i style="background:#6495ED;opacity:.5"></i>已完成（發案 → 完成）</span>
       <span><i style="border-style:dashed;border-color:#e03a3e;background:rgba(224,58,62,.3)"></i>超過交期還沒完成</span></div>
   </div>
 </header>
@@ -330,9 +331,10 @@ function draw() {
       const tip = esc(`${title(t)}\n發案 ${t['發案時間'] || t['派工時間']}\n交期 ${t['交期'] || '—'}${fin ? '\n完成 ' + t['完成時間'] : ''}\n狀態 ${COL_NAMES[t['狀態']] || t['狀態']}`);
       const cells = Array.from({ length: days }, (_, i) => { const d = new Date(+start + i * DAY); return `<div class="cell ${d.getDay() % 6 === 0 ? 'we' : ''}"></div>`; }).join('');
       const k = esc(t.code + '|' + t['編號']);
+      const rev = !t['案件類型'];  // ＋任務（多半是修改）用淺色，新規用深色
       return `<div class="lab" data-k="${k}" title="${tip}"><b>${esc(title(t))}</b><small>${esc(COL_NAMES[t['狀態']] || t['狀態'] || '')}</small></div>`
         + `<div style="grid-column:2 / span ${days};position:relative;display:grid;grid-template-columns:repeat(${days},${W}px)">${cells}`
-        + `<div class="bar ${fin ? 'done' : ''}" data-k="${k}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
+        + `<div class="bar ${fin ? 'done' : ''} ${rev ? 'rev' : ''}" data-k="${k}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${rev ? `color-mix(in srgb, ${m.color} 35%, white)` : m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
     }).join('');
     const tl = Math.round((today - start) / DAY) * W + 230;
     return `<section class="gwin"><h2><span><i class="dot" style="background:${m.color}"></i>${m.code === 'other' ? '未指派' : m.code}</span><span>${list.length} 件</span></h2>
