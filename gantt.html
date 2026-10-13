@@ -203,6 +203,15 @@
   .today::before { content: "今天"; position: absolute; top: -18px; left: -14px; white-space: nowrap; font-size: 11px; color: #fff; background: #e03a3e; padding: 0 4px; }
   .legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink); flex-wrap: wrap; }
   .legend i { display: inline-block; width: 22px; height: 10px; border: 1.5px solid var(--ink); vertical-align: -1px; margin-right: 5px; }
+  .fmt { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96); z-index: 13; width: min(420px, calc(100% - 32px));
+    background: var(--panel); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); padding: 20px; opacity: 0; pointer-events: none; transition: all .25s; }
+  .fmtopen .fmt { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); } .fmtopen .shade { opacity: 1; pointer-events: auto; }
+  .fmt h3 { margin: 0 0 6px; font-size: 20px; }
+  .fmt .ok { font-size: 14px; margin-bottom: 12px; line-height: 1.5; }
+  .fmt .ok b { color: #1a7f37; }
+  .fmt pre { background: var(--seg); border: 1.5px solid var(--ink); padding: 10px 12px; margin: 0 0 12px; font: 14px/1.6 inherit; font-family: inherit; white-space: pre-wrap; user-select: all; -webkit-user-select: all; }
+  .fmt .tips { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+  .fmt .btns { display: flex; gap: 8px; justify-content: flex-end; }
 </style>
 </head>
 <body>
@@ -211,6 +220,7 @@
   <div class="top">
     <h1>遊戲任務甘特圖</h1>
     <span class="spacer"></span>
+    <button class="ghost" id="fmtbtn">📋 發案格式</button>
     <button class="ghost" id="howto">📺 工單說明</button>
     <a class="ghost" href="./" style="text-decoration:none">🗂 回看板</a>
     <button class="ghost" id="reload" title="重新整理">更新 <span id="at"></span></button>
@@ -226,6 +236,13 @@
 </div>
 <div class="shade" id="shade"></div>
 <aside class="drawer" id="drawer"></aside>
+<div class="fmt" id="fmt">
+  <h3>📋 發案格式</h3>
+  <div class="ok" id="fmtok"></div>
+  <pre id="fmttext"></pre>
+  <div class="tips">・一定要在<b>有特助狗的群組</b>貼上<br>・一個欄位一行，前四個必填<br>・其他要交代的全寫在「其他備註」<br>・格式齊全就直接建檔；有補欄位要回「對」</div>
+  <div class="btns"><button class="ghost" id="fmtcopy">再複製一次</button><button class="ghost" id="fmtclose">知道了</button></div>
+</div>
 <div class="tvwrap" id="tvwrap">
   <div class="tv" id="tv"></div>
   <button class="ghost" id="tvclose">關閉</button>
@@ -366,10 +383,33 @@ function openCard(key) {
 }
 function closeCard() { document.body.classList.remove('open'); }
 
+// ===== 發案格式：一進來就複製到剪貼簿，並跳視窗告訴他（Karen 2026-10-13）=====
+const FMT = '+新規\n客戶：\n案件類型：\n需求張數：\n截止時間：\n檔案規格：\n給設計素材位置：\n簡報路徑：\n其他備註：';
+async function copyFmt() {
+  try { await navigator.clipboard.writeText(FMT); return true; } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = FMT; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch (e) { return false; }
+}
+let COPIED = false;
+async function openFmt(auto) {
+  $('fmttext').textContent = FMT;
+  const ok = COPIED = await copyFmt();
+  $('fmtclose').textContent = ok ? '知道了' : '📋 複製並關閉';
+  $('fmtok').innerHTML = ok ? '<b>✅ 已經複製到你的剪貼簿了！</b><br>到 LINE 群組直接「貼上」，填好送出就好。'
+    : '按右下「📋 複製並關閉」，格式就會複製到剪貼簿，<br>再到 LINE 群組貼上。';
+  document.body.classList.add('fmtopen');
+}
+function closeFmt() { document.body.classList.remove('fmtopen'); }
+openFmt(true);
+
 // ===== 工單說明影片（特助狗 EP1：開需求單、一欄一行、備註、修改）=====
 function openTv() { $('tv').innerHTML = '<video src="ep1.mp4" controls autoplay playsinline preload="auto"></video>'; document.body.classList.add('tvopen'); }
 function closeTv() { document.body.classList.remove('tvopen'); $('tv').innerHTML = ''; }
 document.addEventListener('click', e => {
+  if (e.target.id === 'fmtbtn') return openFmt(false);
+  if (e.target.id === 'fmtcopy') return copyFmt().then(ok => { COPIED = COPIED || ok; $('fmtok').innerHTML = ok ? '<b>✅ 已經複製到你的剪貼簿了！</b><br>到 LINE 群組直接「貼上」，填好送出就好。' : '複製失敗，請長按格式手動複製。'; });
+  if (e.target.id === 'fmtclose' && !COPIED) return copyFmt().then(ok => { COPIED = ok; if (ok) { toast('✅ 發案格式已複製，到 LINE 群組貼上就好'); closeFmt(); } else $('fmtok').innerHTML = '複製失敗，請長按格式手動複製。'; });
+  if (e.target.id === 'fmtclose' || (e.target.id === 'shade' && document.body.classList.contains('fmtopen'))) return closeFmt();
   if (e.target.id === 'howto') return openTv();
   if (e.target.id === 'tvclose' || (e.target.id === 'shade' && document.body.classList.contains('tvopen'))) return closeTv();
   if (e.target.id === 'close' || e.target.id === 'shade') return closeCard();
