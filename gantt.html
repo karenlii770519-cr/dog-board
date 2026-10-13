@@ -98,7 +98,7 @@
   .tvopen .tvwrap { opacity: 1; pointer-events: auto; } .tvopen .shade { opacity: 1; pointer-events: auto; }
   .tv { position: relative; width: min(560px, 92vw, 70vh); aspect-ratio: 1; }
   .tv::after { content: ""; position: absolute; inset: 0; background: url(tv_black.png) center/100% no-repeat; pointer-events: none; z-index: 1; }
-  .tv iframe, .tv .noep { position: absolute; left: 4.5%; top: 4%; width: 91%; height: 75.8%; border: 0; background: #000; }
+  .tv video, .tv iframe, .tv .noep { position: absolute; left: 4.5%; top: 4%; width: 91%; height: 75.8%; border: 0; background: #000; }
   .tv .noep { display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 14px; }
   .eps { display: flex; gap: 2px; background: var(--seg); border-radius: 10px; padding: 2px; }
   .eps button { border: 0; background: transparent; color: var(--ink); border-radius: 8px; padding: 7px 14px; font-size: 14px; font-weight: 500; }
@@ -209,6 +209,7 @@
   <div class="top">
     <h1>遊戲任務甘特圖</h1>
     <span class="spacer"></span>
+    <button class="ghost" id="howto">📺 工單說明</button>
     <a class="ghost" href="./" style="text-decoration:none">🗂 回看板</a>
     <button class="ghost" id="reload" title="重新整理">更新 <span id="at"></span></button>
   </div>
@@ -220,6 +221,11 @@
   </div>
 </header>
 <main id="gantt"><div class="loading">載入中…</div></main>
+</div>
+<div class="shade" id="shade"></div>
+<div class="tvwrap" id="tvwrap">
+  <div class="tv" id="tv"></div>
+  <button class="ghost" id="tvclose">關閉</button>
 </div>
 <div class="toast" id="toast"></div>
 <script>
@@ -331,7 +337,12 @@ function draw() {
   }).join('');
   $('gantt').innerHTML = html || '<div class="loading">這段時間沒有工單</div>';
 }
+// ===== 工單說明影片（特助狗 EP1：開需求單、一欄一行、備註、修改）=====
+function openTv() { $('tv').innerHTML = '<video src="ep1.mp4" controls autoplay playsinline preload="auto"></video>'; document.body.classList.add('tvopen'); }
+function closeTv() { document.body.classList.remove('tvopen'); $('tv').innerHTML = ''; }
 document.addEventListener('click', e => {
+  if (e.target.id === 'howto') return openTv();
+  if (e.target.id === 'tvclose' || e.target.id === 'shade') return closeTv();
   const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; return draw(); }
   const sp = e.target.closest('[data-span]'); if (sp) { SPAN = +sp.dataset.span; return draw(); }
   if (e.target.closest('#reload')) return load();
