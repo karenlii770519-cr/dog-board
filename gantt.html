@@ -193,6 +193,7 @@
   .day.mon { border-left: 1px solid var(--ink); }
   .cell { border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); position: relative; }
   .cell.we { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .bar, .lab[data-k] { cursor: pointer; }
   .bar { position: absolute; top: 7px; height: 20px; border: 1.5px solid var(--ink); box-shadow: 1px 1px 0 var(--ink); font-size: 11px; line-height: 17px;
     padding: 0 5px; white-space: nowrap; overflow: hidden; color: #fff; text-shadow: 0 0 2px #000; cursor: pointer; z-index: 1; }
   .bar.done { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 4px, transparent 4px 8px) !important; opacity: .55; }
@@ -223,6 +224,7 @@
 <main id="gantt"><div class="loading">載入中…</div></main>
 </div>
 <div class="shade" id="shade"></div>
+<aside class="drawer" id="drawer"></aside>
 <div class="tvwrap" id="tvwrap">
   <div class="tv" id="tv"></div>
   <button class="ghost" id="tvclose">關閉</button>
@@ -327,9 +329,10 @@ function draw() {
       if (!fin && due && due < today) { const la = col(new Date(+due + DAY)), lb = col(new Date(+today + DAY)); if (lb > la) late = `<div class="late" style="left:${la * W}px;width:${(lb - la) * W - 2}px"></div>`; }
       const tip = esc(`${title(t)}\n發案 ${t['發案時間'] || t['派工時間']}\n交期 ${t['交期'] || '—'}${fin ? '\n完成 ' + t['完成時間'] : ''}\n狀態 ${COL_NAMES[t['狀態']] || t['狀態']}`);
       const cells = Array.from({ length: days }, (_, i) => { const d = new Date(+start + i * DAY); return `<div class="cell ${d.getDay() % 6 === 0 ? 'we' : ''}"></div>`; }).join('');
-      return `<div class="lab" title="${tip}"><b>${esc(title(t))}</b><small>${esc(COL_NAMES[t['狀態']] || t['狀態'] || '')}</small></div>`
+      const k = esc(t.code + '|' + t['編號']);
+      return `<div class="lab" data-k="${k}" title="${tip}"><b>${esc(title(t))}</b><small>${esc(COL_NAMES[t['狀態']] || t['狀態'] || '')}</small></div>`
         + `<div style="grid-column:2 / span ${days};position:relative;display:grid;grid-template-columns:repeat(${days},${W}px)">${cells}`
-        + `<div class="bar ${fin ? 'done' : ''}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
+        + `<div class="bar ${fin ? 'done' : ''}" data-k="${k}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
     }).join('');
     const tl = Math.round((today - start) / DAY) * W + 230;
     return `<section class="gwin"><h2><span><i class="dot" style="background:${m.color}"></i>${m.code === 'other' ? '未指派' : m.code}</span><span>${list.length} 件</span></h2>
@@ -337,12 +340,38 @@ function draw() {
   }).join('');
   $('gantt').innerHTML = html || '<div class="loading">這段時間沒有工單</div>';
 }
+// ===== 點工單看詳細（公開頁：只有單號、類型、設計師、狀態、日期，不含客戶和需求內容）=====
+function openCard(key) {
+  const t = DATA.tasks.find(x => `${x.code}|${x['編號']}` === key);
+  if (!t) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = dueDate(t['交期']);
+  let left = '';
+  if (t['狀態'] === DONE) left = '已完成';
+  else if (due) { const d = Math.round((due - today) / DAY); left = d < 0 ? `⚠️ 逾期 ${-d} 天` : d === 0 ? '今天到期' : `還有 ${d} 天`; }
+  const who = t.code === 'other' ? '未指派' : t.code;
+  const row = (k, v) => v ? `<div class="field"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>` : '';
+  const status = t.pending ? '待派工' : (COL_NAMES[t['狀態']] || t['狀態']);
+  $('drawer').innerHTML = `
+    <button class="ghost" id="close" style="float:right">關閉</button>
+    <h3>${esc(title(t))}</h3>
+    <div class="who">#${esc(t['編號'])}・${esc(who)}</div>
+    <div class="group">${row('狀態', status)}${row('設計師', who)}${row('發案日', t['發案時間'] || t['派工時間'])}${row('交期', t['交期'])}${row('離交期', left)}${row('完成日', t['完成時間'])}</div>
+    <div class="group"><div class="field"><div class="k">要修改或追進度</div><div class="v">${t.pending
+      ? `還沒派工，請主管在群組打：<b>派 ${esc(t['編號'])} @設計師</b>`
+      : `在有特助狗的群組打：<b>＋要改的內容 @${esc(who)}</b><br>不要直接走過去打斷設計師 🐶`}</div></div></div>`;
+  document.body.classList.add('open');
+}
+function closeCard() { document.body.classList.remove('open'); }
+
 // ===== 工單說明影片（特助狗 EP1：開需求單、一欄一行、備註、修改）=====
 function openTv() { $('tv').innerHTML = '<video src="ep1.mp4" controls autoplay playsinline preload="auto"></video>'; document.body.classList.add('tvopen'); }
 function closeTv() { document.body.classList.remove('tvopen'); $('tv').innerHTML = ''; }
 document.addEventListener('click', e => {
   if (e.target.id === 'howto') return openTv();
-  if (e.target.id === 'tvclose' || e.target.id === 'shade') return closeTv();
+  if (e.target.id === 'tvclose' || (e.target.id === 'shade' && document.body.classList.contains('tvopen'))) return closeTv();
+  if (e.target.id === 'close' || e.target.id === 'shade') return closeCard();
+  const kk = e.target.closest('[data-k]'); if (kk) return openCard(kk.dataset.k);
   const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; return draw(); }
   const sp = e.target.closest('[data-span]'); if (sp) { SPAN = +sp.dataset.span; return draw(); }
   if (e.target.closest('#reload')) return load();
