@@ -327,6 +327,8 @@ function render(data) {
   if (!data) return showError('後台沒有回傳資料');
   // 遊戲的組置頂，品牌的組放最下面（Karen 2026-10-14）
   data.members = data.members.filter(m => !m.brand).concat(data.members.filter(m => m.brand));
+  // PAT 放最下面
+  data.members = data.members.filter(m => m.code !== 'PAT').concat(data.members.filter(m => m.code === 'PAT'));
   DATA = data;
   $('at').textContent = data.loadedAt;
   draw();
