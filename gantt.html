@@ -312,6 +312,8 @@ document.addEventListener('click', ev => {
 });
 // KAREN、KIKI 遊戲和品牌都做 → 分成「遊戲」「品牌」兩組；其他人不特別分（Karen 2026-10-14）
 const SPLIT = ['KAREN', 'KIKI'];
+const RARE = ['IAN', 'PAT', 'JOCELYN'];
+let SHOW_RARE = false;
 const groupName = code => code === 'other' ? '未指派' : SPLIT.indexOf(code) >= 0 ? code + ' 遊戲' : code;
 function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
 
@@ -329,11 +331,17 @@ function render(data) {
 }
 function draw() {
   const open = DATA.tasks.filter(t => t['狀態'] !== DONE);
-  $('people').innerHTML = [{ code: 'ALL' }].concat(DATA.members).map(m => {
-    const n = m.code === 'ALL' ? open.length : open.filter(t => t.code === m.code).length;
+  // IAN、PAT、JOCELYN 很少做遊戲：手上沒有未完成的單就收進「其他」，點一下才展開（Karen 2026-10-14）
+  const cnt = code => open.filter(t => t.code === code).length;
+  const tuck = m => RARE.indexOf(m.code) >= 0 && !cnt(m.code) && WHO !== m.code;
+  const tucked = DATA.members.filter(tuck);
+  const chip = m => {
+    const n = m.code === 'ALL' ? open.length : cnt(m.code);
     const label = m.code === 'ALL' ? '全部' : groupName(m.code);
     return `<button class="chip ${WHO === m.code ? 'on' : ''}" data-who="${m.code}">${m.code === 'ALL' ? '' : `<span class="dot" style="background:${m.color}"></span>`}${label}<span class="n">${n}</span></button>`;
-  }).join('');
+  };
+  $('people').innerHTML = [{ code: 'ALL' }].concat(DATA.members.filter(m => SHOW_RARE || !tuck(m))).map(chip).join('')
+    + (tucked.length ? `<button class="chip" data-rare="1">${SHOW_RARE ? '收起' : '其他 ' + tucked.length + ' 人 ▸'}</button>` : '');
   $('span').innerHTML = SPANS.map(([d, l]) => `<button data-span="${d}" class="${SPAN === d ? 'cur' : ''}">${l}</button>`).join('');
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -433,7 +441,9 @@ document.addEventListener('click', e => {
   if (e.target.id === 'tvclose' || (e.target.id === 'shade' && document.body.classList.contains('tvopen'))) return closeTv();
   if (e.target.id === 'close' || e.target.id === 'shade') return closeCard();
   const kk = e.target.closest('[data-k]'); if (kk) return openCard(kk.dataset.k);
-  const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; return draw(); }
+  const chip = e.target.closest('.chip');
+  if (chip && chip.dataset.rare) { SHOW_RARE = !SHOW_RARE; return draw(); }
+  if (chip) { WHO = chip.dataset.who; return draw(); }
   const sp = e.target.closest('[data-span]'); if (sp) { SPAN = +sp.dataset.span; return draw(); }
   if (e.target.closest('#reload')) return load();
 });
