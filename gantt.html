@@ -235,7 +235,7 @@
       <span><i style="border-style:dashed;border-color:#e03a3e;background:rgba(224,58,62,.3)"></i>超過交期還沒完成</span></div>
   </div>
 </header>
-<main id="gantt"><div class="loading">載入中…</div></main>
+<main id="gantt"><div class="loading">載入中，要讀兩份工作表，大約 10 秒，請耐心等待 🐶</div></main>
 </div>
 <div class="shade" id="shade"></div>
 <aside class="drawer" id="drawer"></aside>
@@ -300,10 +300,9 @@ function dueInfo(t) {
   return null;
 }
 function title(t) { return (t['名稱'] || t['案件類型'] || '修改') + (t.noNo ? '' : ' #' + t['編號']); }  // 品牌組的案子沒有單號
-// 手上沒有未完成的單（全部結案）的人預設收合；點組名可以手動展開／收合（Karen 2026-10-14）
+// IAN、PAT、JOCELYN 預設收合，其他（含品牌）都打開；點組名可以手動展開／收合（Karen 2026-10-14）
 const FOLD = {};  // 手動切過的：code → true 收合 / false 展開
-const isFolded = code => code in FOLD ? FOLD[code]
-  : !DATA.tasks.some(t => t.code === code && t['狀態'] !== DONE);
+const isFolded = code => code in FOLD ? FOLD[code] : RARE.indexOf(code) >= 0;
 document.addEventListener('click', ev => {
   const h = ev.target.closest('[data-fold]');
   if (!h) return;
