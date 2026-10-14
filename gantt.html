@@ -311,7 +311,7 @@ document.addEventListener('click', ev => {
 });
 // KAREN、KIKI 遊戲和品牌都做 → 分成「遊戲」「品牌」兩組；其他人不特別分（Karen 2026-10-14）
 const SPLIT = ['KAREN', 'KIKI'];
-const RARE = ['IAN', 'PAT', 'JOCELYN'];
+const RARE = ['IAN', 'JOCELYN', 'PAT'];
 let SHOW_RARE = false;
 const groupName = code => code === 'other' ? '未指派' : SPLIT.indexOf(code) >= 0 ? code + ' 遊戲' : code;
 function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
@@ -325,18 +325,19 @@ const ymd = d => `${d.getMonth() + 1}/${d.getDate()}`;
 function render(data) {
   if (!data) return showError('後台沒有回傳資料');
   // 遊戲的組置頂，品牌的組放最下面（Karen 2026-10-14）
-  data.members = data.members.filter(m => !m.brand).concat(data.members.filter(m => m.brand));
-  // PAT 放最下面
-  data.members = data.members.filter(m => m.code !== 'PAT').concat(data.members.filter(m => m.code === 'PAT'));
+  // IAN、JOCELYN、PAT 很少做遊戲 → 三個人排在一起、放最下面
+  const rare = RARE.map(c => data.members.find(m => m.code === c)).filter(Boolean);
+  data.members = data.members.filter(m => !m.brand && RARE.indexOf(m.code) < 0)
+    .concat(data.members.filter(m => m.brand), rare);
   DATA = data;
   $('at').textContent = data.loadedAt;
   draw();
 }
 function draw() {
   const open = DATA.tasks.filter(t => t['狀態'] !== DONE);
-  // IAN、PAT、JOCELYN 很少做遊戲：手上沒有未完成的單就收進「其他」，點一下才展開（Karen 2026-10-14）
+  // IAN、JOCELYN、PAT 很少做遊戲：收進最後的「其他」，點一下才展開，三個人排在一起（Karen 2026-10-14）
   const cnt = code => open.filter(t => t.code === code).length;
-  const tuck = m => RARE.indexOf(m.code) >= 0 && !cnt(m.code) && WHO !== m.code;
+  const tuck = m => RARE.indexOf(m.code) >= 0 && WHO !== m.code;  // 三個人一律收進「其他」
   const tucked = DATA.members.filter(tuck);
   const chip = m => {
     const n = m.code === 'ALL' ? open.length : cnt(m.code);
