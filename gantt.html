@@ -299,19 +299,15 @@ function dueInfo(t) {
   if (days <= 3) return { cls: 'soon', text: `${days} 天後到期` };
   return null;
 }
-function title(t) { return (t['名稱'] || t['案件類型'] || '修改') + ' #' + t['編號']; }
-// 很少做遊戲任務的人預設收合，點組名可以展開；每個人自己的選擇記在瀏覽器（Karen 2026-10-14）
-const FOLD_DEFAULT = ['IAN', 'JOCELYN', 'PAT'];
-let FOLD = null;
-try { FOLD = JSON.parse(localStorage.getItem('ganttFold')); } catch (e) {}
-if (!Array.isArray(FOLD)) FOLD = FOLD_DEFAULT.slice();
-const isFolded = code => FOLD.indexOf(code) >= 0;
+function title(t) { return (t['名稱'] || t['案件類型'] || '修改') + (t.noNo ? '' : ' #' + t['編號']); }  // 品牌組的案子沒有單號
+// 手上沒有未完成的單（全部結案）的人預設收合；點組名可以手動展開／收合（Karen 2026-10-14）
+const FOLD = {};  // 手動切過的：code → true 收合 / false 展開
+const isFolded = code => code in FOLD ? FOLD[code]
+  : !DATA.tasks.some(t => t.code === code && t['狀態'] !== DONE);
 document.addEventListener('click', ev => {
   const h = ev.target.closest('[data-fold]');
   if (!h) return;
-  const c = h.dataset.fold;
-  FOLD = isFolded(c) ? FOLD.filter(x => x !== c) : FOLD.concat(c);
-  try { localStorage.setItem('ganttFold', JSON.stringify(FOLD)); } catch (e) {}
+  FOLD[h.dataset.fold] = !isFolded(h.dataset.fold);
   draw();
 });
 function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
@@ -386,15 +382,17 @@ function openCard(key) {
   let left = '';
   if (t['狀態'] === DONE) left = '已完成';
   else if (due) { const d = Math.round((due - today) / DAY); left = d < 0 ? `⚠️ 逾期 ${-d} 天` : d === 0 ? '今天到期' : `還有 ${d} 天`; }
-  const who = t.code === 'other' ? '未指派' : t.code;
+  const who = t.code === 'other' ? '未指派' : t.code.split(' ')[0];  // 「KIKI 品牌」→ KIKI
   const row = (k, v) => v ? `<div class="field"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>` : '';
   const status = t.pending ? '待派工' : (COL_NAMES[t['狀態']] || t['狀態']);
   $('drawer').innerHTML = `
     <button class="ghost" id="close" style="float:right">關閉</button>
     <h3>${esc(title(t))}</h3>
-    <div class="who">#${esc(t['編號'])}・${esc(who)}</div>
+    <div class="who">${t.noNo ? '品牌組' : '#' + esc(t['編號'])}・${esc(t.code === 'other' ? '未指派' : t.code)}</div>
     <div class="group">${row('狀態', status)}${row('設計師', who)}${row('發案日', t['發案時間'] || t['派工時間'])}${row('交期', t['交期'])}${row('離交期', left)}${row('完成日', t['完成時間'])}</div>
-    <div class="group"><div class="field"><div class="k">要修改或追進度</div><div class="v">${t.pending
+    <div class="group"><div class="field"><div class="k">要修改或追進度</div><div class="v">${t.noNo
+      ? '品牌組的案子，請照品牌「視覺需求工單」流程聯絡'
+      : t.pending
       ? `還沒派工，請主管在群組打：<b>派 ${esc(t['編號'])} @設計師</b>`
       : `在有特助狗的群組打：<b>＋要改的內容 @${esc(who)}</b><br>不要直接走過去打斷設計師 🐶`}</div></div></div>`;
   document.body.classList.add('open');
