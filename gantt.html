@@ -310,6 +310,9 @@ document.addEventListener('click', ev => {
   FOLD[h.dataset.fold] = !isFolded(h.dataset.fold);
   draw();
 });
+// KAREN、KIKI 遊戲和品牌都做 → 分成「遊戲」「品牌」兩組；其他人不特別分（Karen 2026-10-14）
+const SPLIT = ['KAREN', 'KIKI'];
+const groupName = code => code === 'other' ? '未指派' : SPLIT.indexOf(code) >= 0 ? code + ' 遊戲' : code;
 function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
 
 
@@ -328,7 +331,7 @@ function draw() {
   const open = DATA.tasks.filter(t => t['狀態'] !== DONE);
   $('people').innerHTML = [{ code: 'ALL' }].concat(DATA.members).map(m => {
     const n = m.code === 'ALL' ? open.length : open.filter(t => t.code === m.code).length;
-    const label = m.code === 'ALL' ? '全部' : m.code === 'other' ? '未指派' : m.code;
+    const label = m.code === 'ALL' ? '全部' : groupName(m.code);
     return `<button class="chip ${WHO === m.code ? 'on' : ''}" data-who="${m.code}">${m.code === 'ALL' ? '' : `<span class="dot" style="background:${m.color}"></span>`}${label}<span class="n">${n}</span></button>`;
   }).join('');
   $('span').innerHTML = SPANS.map(([d, l]) => `<button data-span="${d}" class="${SPAN === d ? 'cur' : ''}">${l}</button>`).join('');
@@ -368,7 +371,7 @@ function draw() {
     }).join('');
     const tl = Math.round((today - start) / DAY) * W + 230;
     const shut = WHO === 'ALL' && isFolded(m.code);
-    return `<section class="gwin ${shut ? 'folded' : ''}"><h2 class="fold" data-fold="${m.code}" title="點一下收合／展開"><span><i class="arrow">${shut ? '▸' : '▾'}</i><i class="dot" style="background:${m.color}"></i>${m.code === 'other' ? '未指派' : m.code}</span><span>${list.length} 件</span></h2>
+    return `<section class="gwin ${shut ? 'folded' : ''}"><h2 class="fold" data-fold="${m.code}" title="點一下收合／展開"><span><i class="arrow">${shut ? '▸' : '▾'}</i><i class="dot" style="background:${m.color}"></i>${groupName(m.code)}</span><span>${list.length} 件</span></h2>
       ${shut ? '' : `<div class="gscroll"><div class="grid" style="grid-template-columns:230px repeat(${days},${W}px)">${head.join('')}${rows}<div class="today" style="left:${tl}px"></div></div></div>`}</section>`;
   }).join('');
   $('gantt').innerHTML = html || '<div class="loading">這段時間沒有工單</div>';
@@ -388,7 +391,7 @@ function openCard(key) {
   $('drawer').innerHTML = `
     <button class="ghost" id="close" style="float:right">關閉</button>
     <h3>${esc(title(t))}</h3>
-    <div class="who">${t.noNo ? '品牌組' : '#' + esc(t['編號'])}・${esc(t.code === 'other' ? '未指派' : t.code)}</div>
+    <div class="who">${t.noNo ? '品牌組' : '#' + esc(t['編號'])}・${esc(groupName(t.code))}</div>
     <div class="group">${row('狀態', status)}${row('設計師', who)}${row('發案日', t['發案時間'] || t['派工時間'])}${row('交期', t['交期'])}${row('離交期', left)}${row('完成日', t['完成時間'])}</div>
     <div class="group"><div class="field"><div class="k">要修改或追進度</div><div class="v">${t.noNo
       ? '品牌組的案子，請照品牌「視覺需求工單」流程聯絡'
