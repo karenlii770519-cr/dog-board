@@ -182,6 +182,9 @@
   .gwin > h2 { margin: 0; padding: 5px 10px; font-size: 14px; border-bottom: 1.5px solid var(--ink); display: flex; justify-content: space-between;
     background: repeating-linear-gradient(var(--stripe) 0 1px, transparent 1px 3px) 0 4px/100% calc(100% - 8px) no-repeat; }
   .gwin > h2 span { background: var(--win); padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; }
+  .gwin > h2.fold { cursor: pointer; user-select: none; }
+  .gwin > h2 .arrow { font-style: normal; width: 12px; display: inline-block; }
+  .gwin.folded > h2 { border-bottom: none; }
   .gwin > h2 .dot { width: 10px; height: 10px; border: 1px solid var(--ink); }
   .gscroll { overflow-x: auto; }
   .grid { display: grid; position: relative; min-width: max-content; }
@@ -297,6 +300,20 @@ function dueInfo(t) {
   return null;
 }
 function title(t) { return (t['名稱'] || t['案件類型'] || '修改') + ' #' + t['編號']; }
+// 很少做遊戲任務的人預設收合，點組名可以展開；每個人自己的選擇記在瀏覽器（Karen 2026-10-14）
+const FOLD_DEFAULT = ['IAN', 'JOCELYN', 'PAT'];
+let FOLD = null;
+try { FOLD = JSON.parse(localStorage.getItem('ganttFold')); } catch (e) {}
+if (!Array.isArray(FOLD)) FOLD = FOLD_DEFAULT.slice();
+const isFolded = code => FOLD.indexOf(code) >= 0;
+document.addEventListener('click', ev => {
+  const h = ev.target.closest('[data-fold]');
+  if (!h) return;
+  const c = h.dataset.fold;
+  FOLD = isFolded(c) ? FOLD.filter(x => x !== c) : FOLD.concat(c);
+  try { localStorage.setItem('ganttFold', JSON.stringify(FOLD)); } catch (e) {}
+  draw();
+});
 function color(code) { return (DATA.members.find(m => m.code === code) || {}).color || '#999'; }
 
 
@@ -354,8 +371,9 @@ function draw() {
         + `<div class="bar ${fin ? 'done' : ''} ${rev ? 'rev' : ''}" data-k="${k}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${rev ? `color-mix(in srgb, ${m.color} 35%, white)` : m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
     }).join('');
     const tl = Math.round((today - start) / DAY) * W + 230;
-    return `<section class="gwin"><h2><span><i class="dot" style="background:${m.color}"></i>${m.code === 'other' ? '未指派' : m.code}</span><span>${list.length} 件</span></h2>
-      <div class="gscroll"><div class="grid" style="grid-template-columns:230px repeat(${days},${W}px)">${head.join('')}${rows}<div class="today" style="left:${tl}px"></div></div></div></section>`;
+    const shut = WHO === 'ALL' && isFolded(m.code);
+    return `<section class="gwin ${shut ? 'folded' : ''}"><h2 class="fold" data-fold="${m.code}" title="點一下收合／展開"><span><i class="arrow">${shut ? '▸' : '▾'}</i><i class="dot" style="background:${m.color}"></i>${m.code === 'other' ? '未指派' : m.code}</span><span>${list.length} 件</span></h2>
+      ${shut ? '' : `<div class="gscroll"><div class="grid" style="grid-template-columns:230px repeat(${days},${W}px)">${head.join('')}${rows}<div class="today" style="left:${tl}px"></div></div></div>`}</section>`;
   }).join('');
   $('gantt').innerHTML = html || '<div class="loading">這段時間沒有工單</div>';
 }
