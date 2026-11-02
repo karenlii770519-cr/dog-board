@@ -176,6 +176,67 @@
   .login .must { background: var(--panel); border: 1.5px solid var(--ink); border-radius: 0; box-shadow: var(--hard); color: var(--ink); }
   .login p { color: var(--ink); }
   .loading { color: var(--ink); }
+
+  /* ===== 分頁：看板／已完成 ===== */
+  .row2 { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; max-width: 1400px; margin: 14px auto 0; }
+  .row2 .stats { margin: 0; }
+  .views button .n { font-size: 12px; margin-left: 4px; }
+  .mtabs { display: none; }
+  .donelist { max-width: 900px; margin: 0 auto; }
+  .mwin { background: var(--win); border: 1.5px solid var(--ink); box-shadow: var(--hard); margin-bottom: 20px; }
+  .mwin > h2 { margin: 0; padding: 5px 10px; font-size: 14px; border-bottom: 1.5px solid var(--ink); display: flex; justify-content: space-between;
+    background: repeating-linear-gradient(var(--stripe) 0 1px, transparent 1px 3px) 0 4px/100% calc(100% - 8px) no-repeat; }
+  .mwin > h2 span { background: var(--win); padding: 0 8px; }
+  .drow { display: grid; grid-template-columns: 54px 1fr auto; gap: 2px 12px; align-items: baseline; padding: 9px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); cursor: pointer; }
+  .drow:last-child { border-bottom: 0; }
+  .drow:hover { background: var(--col); }
+  .drow .d { font-variant-numeric: tabular-nums; font-size: 13px; }
+  .drow .t { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drow .t i { display: inline-block; width: 8px; height: 8px; border: 1px solid var(--ink); margin-right: 7px; vertical-align: 1px; }
+  .drow .sub { grid-column: 2; color: var(--muted); font-size: 12px; }
+  .drow .meta { grid-row: 1 / span 2; grid-column: 3; display: flex; gap: 4px; font-size: 12px; align-self: center; }
+  .mtabs button.over { background: var(--col); box-shadow: inset 0 0 0 3px var(--ink); }
+
+  /* ===== 手機版 ===== */
+  @media (max-width: 900px) {
+    header { position: static; padding: 12px 12px 10px; }
+    .top { gap: 8px; align-items: center; }
+    h1 { font-size: 22px; gap: 8px; } h1::before { width: 16px; height: 19px; }
+    .hello { font-size: 13px; padding: 0; }
+    .top .ghost { padding: 5px 10px; font-size: 13px; }
+    #at { display: none; }
+    input[type=search] { order: 10; flex: 1 1 100%; width: 100%; font-size: 16px; } /* 16px：iOS 才不會自動放大 */
+    .people { margin-top: 10px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .people::-webkit-scrollbar { display: none; }
+    .chip { padding: 7px 12px; }
+    .row2 { gap: 10px; margin-top: 10px; }
+    .stats { gap: 14px; font-size: 12px; } .stats b { font-size: 16px; margin-left: 4px; }
+    main { padding: 0 12px 40px; }
+    /* 看板一次只看一欄，用上面的分頁切換；長按卡片可以拖到別的分頁 */
+    .mtabs { display: flex; position: sticky; top: 0; z-index: 4; margin: 0 -12px 12px; width: calc(100% + 24px);
+      border-left: 0; border-right: 0; box-shadow: 0 2px 0 var(--ink); }
+    .mtabs button { flex: 1 1 0; padding: 9px 2px; font-size: 13px; }
+    .mtabs button .n { margin-left: 3px; font-size: 11px; }
+    .mtabs[hidden] { display: none; }
+    .board { gap: 0; }
+    .board .col:not(.cur) { display: none; }
+    .board .col { box-shadow: none; }
+    .board .col h2 { display: none; }
+    .board .col { padding-top: 10px; }
+    .donelist { margin-top: 12px; }
+    .card { padding: 12px 14px; }
+    .drow { grid-template-columns: 44px 1fr; padding: 9px 10px; }
+    .drow .sub { grid-row: 2; }
+    .drow .meta { grid-row: 3; grid-column: 2; margin-top: 4px; }
+    .drawer { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 86vh; padding: 18px 16px;
+      transform: translateY(calc(100% + 24px)); }
+    .open .drawer { transform: none; }
+    .drawer h3 { font-size: 20px; padding-right: 70px; }
+    .actions button { flex: 1 1 0; font-size: 13px; padding: 10px 2px; }
+    .toast { bottom: 16px; max-width: calc(100% - 32px); }
+    .login h1 { font-size: 28px; }
+  }
 </style>
 </head>
 <body>
@@ -197,9 +258,12 @@
     <button class="ghost" id="reload" title="重新整理">更新 <span id="at"></span></button>
   </div>
   <div class="people" id="people"></div>
-  <div class="stats" id="stats"></div>
+  <div class="row2">
+    <div class="eps views" id="views"></div>
+    <div class="stats" id="stats"></div>
+  </div>
 </header>
-<main><div class="loading" id="board">載入中…</div></main>
+<main><div class="eps mtabs" id="mtabs"></div><div class="loading" id="board">載入中…</div></main>
 <div class="shade" id="shade"></div>
 <aside class="drawer" id="drawer"></aside>
 <div class="tvwrap" id="tvwrap">
@@ -233,7 +297,10 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz1RDARfY94PHB3gZFwCx-G
 // ================
 let TOKEN = null;
 try { TOKEN = sessionStorage.getItem('idToken'); } catch (e) {}
-let DATA = null, WHO = 'ALL', SHOW_ALL_DONE = false;
+let DATA = null, WHO = 'ALL';
+let VIEW = location.hash === '#done' ? 'done' : 'board';  // 分頁：看板／已完成
+let MCOL = null;          // 手機版看板一次只顯示一欄
+let DONE_LIMIT = 100;     // 已完成分頁一次顯示幾筆
 const $ = id => document.getElementById(id);
 const esc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -318,6 +385,17 @@ function visible() {
     (!q || ['客戶', '案件類型', '備註', '原始訊息', '編號', '發起人'].some(k => String(t[k]).toLowerCase().includes(q))));
 }
 
+// 完成時間：2026/10/28 14:30 之類 → Date（不靠 new Date(字串)，Safari 才不會出錯）
+const parseDT = s => { const m = String(s || '').match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+const ymd = d => `${d.getMonth() + 1}/${d.getDate()}`;
+const who = t => t.code === 'other' ? '未指派' : t.code;
+function subText(t) { return [t['案件類型'], t['張數'] && (String(t['張數']).match(/張/) ? t['張數'] : t['張數'] + ' 張')].filter(Boolean).join('・'); }
+function setView(v) {
+  VIEW = v; DONE_LIMIT = 100;
+  try { history.replaceState(null, '', v === 'done' ? '#done' : location.pathname + location.search); } catch (e) {}
+  draw(); window.scrollTo(0, 0);
+}
+
 function draw() {
   const open = DATA.tasks.filter(t => t['狀態'] !== DONE);
   $('people').innerHTML = [{ code: 'ALL', color: 'transparent' }].concat(DATA.members).map(m => {
@@ -328,37 +406,73 @@ function draw() {
   }).join('');
 
   const tasks = visible();
+  const doneAll = tasks.filter(t => t['狀態'] === DONE);
+  $('views').innerHTML = `<button data-view="board" class="${VIEW === 'board' ? 'cur' : ''}">🗂 看板</button>`
+    + `<button data-view="done" class="${VIEW === 'done' ? 'cur' : ''}">✅ 已完成<span class="n">${doneAll.length}</span></button>`;
+  $('mtabs').hidden = VIEW !== 'board';
+  if (VIEW === 'done') return drawDone(doneAll);
+
   const mine = tasks.filter(t => t['狀態'] !== DONE);
   const late = mine.filter(t => (dueInfo(t) || {}).cls === 'late').length;
   const soon = mine.filter(t => (dueInfo(t) || {}).cls === 'soon').length;
   $('stats').innerHTML = `<span>未完成 <b>${mine.length}</b></span><span class="late">逾期／今天 <b>${late}</b></span><span class="soon">3 天內到期 <b>${soon}</b></span>`;
 
   const since = Date.now() - 14 * 864e5;
-  $('board').className = 'board';
-  $('board').innerHTML = DATA.statuses.map(st => {
+  const cols = DATA.statuses.map(st => {
     let list = tasks.filter(t => t['狀態'] === st || (st === '待處理' && !DATA.statuses.includes(t['狀態'])));
     if (st === DONE) {
       list.sort((a, b) => String(b['完成時間']).localeCompare(String(a['完成時間'])));
-      if (!SHOW_ALL_DONE) list = list.filter(t => { const d = new Date(String(t['完成時間']).replace(/\//g, '-')); return isNaN(d) || d >= since; });
+      list = list.filter(t => { const d = parseDT(t['完成時間']); return !d || d >= since; });
     } else {
       list.sort((a, b) => (dueDate(a['交期']) || 9e15) - (dueDate(b['交期']) || 9e15));
     }
+    return { st, list };
+  });
+  if (!MCOL || !DATA.statuses.includes(MCOL)) MCOL = DATA.statuses[0];
+  $('mtabs').innerHTML = cols.map(({ st, list }) => `<button data-mcol="${st}" class="${st === MCOL ? 'cur' : ''}">${COL_NAMES[st]}<span class="n">${list.length}</span></button>`).join('');
+  $('board').className = 'board';
+  $('board').innerHTML = cols.map(({ st, list }) => {
     const cards = list.map(t => {
       const due = dueInfo(t);
       return `<div class="card" style="--c:${color(t.code)}" data-k="${t.code}|${t.row}">
         <div class="t">${esc(title(t))}</div>
-        <div class="sub">${esc([t['案件類型'], t['張數'] && (String(t['張數']).match(/張/) ? t['張數'] : t['張數'] + ' 張')].filter(Boolean).join('・'))}</div>
+        <div class="sub">${esc(subText(t))}</div>
         <div class="meta">
           ${t.pending ? '<span class="tag late">待派工</span>' : ''}
           ${due ? `<span class="tag ${due.cls}">${due.text}</span>` : ''}
           ${t['交期'] ? `<span class="tag">交期 ${esc(t['交期'])}</span>` : ''}
-          ${WHO === 'ALL' ? `<span class="tag">${t.code === 'other' ? '未指派' : t.code}</span>` : ''}
+          ${WHO === 'ALL' ? `<span class="tag">${who(t)}</span>` : ''}
           <span class="tag">#${esc(t['編號'])}</span>
         </div></div>`;
-    }).join('') || '<div class="empty">沒有</div>';
-    const more = st === DONE ? `<button class="ghost more" id="moreDone">${SHOW_ALL_DONE ? '只看近 14 天' : '看全部已完成'}</button>` : '';
-    return `<section class="col" data-col="${st}"><h2><span>${COL_NAMES[st]}</span><span>${list.length}</span></h2>${cards}${more}</section>`;
+    }).join('') || `<div class="empty">${st === DONE ? '近 14 天沒有' : '沒有'}</div>`;
+    const more = st === DONE ? `<button class="ghost more" data-view="done">看全部已完成（${doneAll.length}）→</button>` : '';
+    return `<section class="col ${st === MCOL ? 'cur' : ''}" data-col="${st}"><h2><span>${COL_NAMES[st]}</span><span>${list.length}</span></h2>${cards}${more}</section>`;
   }).join('');
+}
+
+// ===== 已完成分頁：照完成日新到舊，按月份分組；上面的人和搜尋一樣有效 =====
+function drawDone(list) {
+  list = list.map(t => ({ t, d: parseDT(t['完成時間']) }))
+    .sort((a, b) => (b.d || 0) - (a.d || 0) || String(b.t['完成時間']).localeCompare(String(a.t['完成時間'])));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const month = list.filter(x => x.d && x.d.getFullYear() === today.getFullYear() && x.d.getMonth() === today.getMonth()).length;
+  const week = list.filter(x => x.d && x.d > today - 7 * 864e5).length;
+  $('stats').innerHTML = `<span>近 7 天 <b>${week}</b></span><span>本月完成 <b>${month}</b></span><span>全部 <b>${list.length}</b></span>`;
+  const groups = [];
+  list.slice(0, DONE_LIMIT).forEach(x => {
+    const g = x.d ? `${x.d.getFullYear()} 年 ${x.d.getMonth() + 1} 月` : '沒有完成日';
+    if (!groups.length || groups[groups.length - 1].g !== g) groups.push({ g, rows: [] });
+    groups[groups.length - 1].rows.push(x);
+  });
+  const total = g => list.filter(x => (x.d ? `${x.d.getFullYear()} 年 ${x.d.getMonth() + 1} 月` : '沒有完成日') === g).length;
+  $('board').className = 'donelist';
+  $('board').innerHTML = groups.map(({ g, rows }) => `<section class="mwin"><h2><span>${g}</span><span>${total(g)} 件</span></h2>${rows.map(({ t, d }) =>
+    `<div class="drow" data-k="${t.code}|${t.row}"><span class="d">${d ? ymd(d) : '—'}</span>
+      <span class="t"><i style="background:${color(t.code)}"></i>${esc(title(t))}</span>
+      <span class="meta">${WHO === 'ALL' ? `<span class="tag">${who(t)}</span>` : ''}<span class="tag">#${esc(t['編號'])}</span></span>
+      <span class="sub">${esc(subText(t) || '—')}${t['交期'] ? '・交期 ' + esc(t['交期']) : ''}</span></div>`).join('')}</section>`).join('')
+    + (list.length > DONE_LIMIT ? `<button class="ghost more" id="moreDone">再看 100 筆（還有 ${list.length - DONE_LIMIT} 筆）</button>` : '')
+    || `<div class="empty" style="padding:60px 0">${$('q').value.trim() ? '找不到符合的已完成工單' : '還沒有已完成的工單'}</div>`;
 }
 
 function openCard(key) {
@@ -371,7 +485,7 @@ function openCard(key) {
   $('drawer').innerHTML = `
     <button class="ghost" id="close" style="float:right">關閉</button>
     <h3>${esc(title(t))}</h3>
-    <div class="who">#${esc(t['編號'])}・${t.code === 'other' ? '未指派' : t.code}</div>
+    <div class="who">#${esc(t['編號'])}・${who(t)}</div>
     ${t.pending ? `<div class="must" style="margin:10px 0;padding:10px 12px;border:1.5px solid var(--ink)">還沒派工。請在群組打：<b>派 ${esc(t['編號'])} @設計師</b></div>` : ''}
     <div class="actions" ${t.pending ? 'style="display:none"' : ''}>${DATA.statuses.map(s => `<button data-st="${s}" class="${t['狀態'] === s ? 'cur' : ''} ${s === DONE ? 'done' : ''}">${COL_NAMES[s]}</button>`).join('')}</div>
     <div class="group">${fields}</div>
@@ -435,8 +549,8 @@ document.addEventListener('pointermove', e => {
   e.preventDefault();
   drag.ghost.style.left = e.clientX - drag.dx + 'px';
   drag.ghost.style.top = e.clientY - drag.dy + 'px';
-  document.querySelectorAll('.col').forEach(c => c.classList.remove('over'));
-  const col = document.elementFromPoint(e.clientX, e.clientY)?.closest('.col');
+  document.querySelectorAll('.col.over, [data-mcol].over').forEach(c => c.classList.remove('over'));
+  const col = dropTarget(e.clientX, e.clientY);
   if (col) col.classList.add('over');
 }, { passive: false });
 document.addEventListener('touchmove', e => { if (drag && drag.on) e.preventDefault(); }, { passive: false });
@@ -446,11 +560,16 @@ function endDrag(e) {
   const d = drag; drag = null;
   if (!d.on) return;
   d.ghost.remove(); d.card.style.opacity = ''; document.body.style.userSelect = '';
-  document.querySelectorAll('.col').forEach(c => c.classList.remove('over'));
+  document.querySelectorAll('.col.over, [data-mcol].over').forEach(c => c.classList.remove('over'));
   d.justDragged = true; endDrag.last = Date.now();
-  const col = e && document.elementFromPoint(e.clientX, e.clientY)?.closest('.col');
+  const col = e && dropTarget(e.clientX, e.clientY);
   const t = DATA.tasks.find(x => `${x.code}|${x.row}` === d.card.dataset.k);
-  if (col && t) changeStatus(t, col.dataset.col);
+  if (col && t) changeStatus(t, col.dataset.col || col.dataset.mcol);
+}
+// 放到哪一欄：電腦版是欄位本身，手機版是上面的分頁按鈕
+function dropTarget(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el && (el.closest('[data-mcol]') || el.closest('.col'));
 }
 document.addEventListener('pointerup', endDrag);
 document.addEventListener('pointercancel', () => endDrag(null));
@@ -475,16 +594,20 @@ document.addEventListener('click', e => {
   if (e.target.id === 'howto') return openTv();
   if (e.target.id === 'tvclose' || (e.target.id === 'shade' && document.body.classList.contains('tvopen'))) return closeTv();
   const ep = e.target.closest('[data-ep]'); if (ep) return showEp(+ep.dataset.ep);
-  const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; return draw(); }
+  const chip = e.target.closest('.chip'); if (chip) { WHO = chip.dataset.who; DONE_LIMIT = 100; return draw(); }
+  const vw = e.target.closest('[data-view]'); if (vw) return setView(vw.dataset.view);
+  const mc = e.target.closest('[data-mcol]'); if (mc) { MCOL = mc.dataset.mcol; return draw(); }
   const card = e.target.closest('.card'); if (card) { if (Date.now() - (endDrag.last || 0) < 300) return; return openCard(card.dataset.k); }
+  const dr = e.target.closest('.drow'); if (dr) return openCard(dr.dataset.k);
   const st = e.target.closest('[data-st]'); if (st) return setStatus(st.dataset.st);
   if (e.target.id === 'close' || e.target.id === 'shade') return closeCard();
-  if (e.target.id === 'moreDone') { SHOW_ALL_DONE = !SHOW_ALL_DONE; return draw(); }
+  if (e.target.id === 'moreDone') { DONE_LIMIT += 100; return draw(); }
   if (e.target.closest('#reload')) return load();
   if (e.target.id === 'logout') return signOut();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCard(); closeTv(); } });
-$('q').addEventListener('input', () => DATA && draw());
+$('q').addEventListener('input', () => { DONE_LIMIT = 100; DATA && draw(); });
+window.addEventListener('hashchange', () => { const v = location.hash === '#done' ? 'done' : 'board'; if (v !== VIEW && DATA) setView(v); });
 setInterval(() => TOKEN && document.visibilityState === 'visible' && load(), 2 * 60 * 1000);
 initLogin();
 if (TOKEN) { $('login').hidden = true; $('app').hidden = false; load(); }
