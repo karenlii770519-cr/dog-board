@@ -271,9 +271,9 @@
   <div class="top">
     <h1>遊戲任務甘特圖</h1>
     <span class="spacer"></span>
-    <button class="ghost" id="fmtbtn">📋 發案格式</button>
-    <button class="ghost" id="howto">📺 工單說明</button>
-    <a class="ghost" href="./" style="text-decoration:none">🗂 回看板</a>
+    <button class="ghost" id="fmtbtn">發案格式</button>
+    <button class="ghost" id="howto">工單說明</button>
+    <a class="ghost" href="./" style="text-decoration:none">回看板</a>
     <button class="ghost" id="reload" title="重新整理">更新 <span id="at"></span></button>
   </div>
   <div class="people" id="people"></div>
@@ -289,12 +289,12 @@
   </div>
 </header>
 <div class="stale" id="stale" hidden></div>
-<main id="gantt"><div class="loading">載入中，要讀兩份工作表，大約 10 秒，請耐心等待 🐶</div></main>
+<main id="gantt"><div class="loading">載入中，要讀兩份工作表，大約 10 秒，請耐心等待</div></main>
 </div>
 <div class="shade" id="shade"></div>
 <aside class="drawer" id="drawer"></aside>
 <div class="fmt" id="fmt">
-  <h3>📋 發案格式</h3>
+  <h3>發案格式</h3>
   <div class="ok" id="fmtok"></div>
   <pre id="fmttext"></pre>
   <div class="tips">・一定要在<b>有特助狗的群組</b>貼上<br>・一個欄位一行，前四個必填<br>・其他要交代的全寫在「其他備註」<br>・格式齊全就直接建檔；有補欄位要回「對」</div>
@@ -333,7 +333,7 @@ function showCache() {
 }
 // 更新失敗但畫面上已經有資料：不要清掉，顯示提示＋再試一次
 function staleFail(msg) {
-  setStale(`⚠️ ${esc(msg)}，目前顯示的是 ${ago(SHOWN_AT)}的資料 <button class="ghost" id="retry">再試一次</button>`);
+  setStale(`${esc(msg)}，目前顯示的是 ${ago(SHOWN_AT)}的資料 <button class="ghost" id="retry">再試一次</button>`);
   $('at').textContent = '';
 }
 
@@ -509,7 +509,7 @@ function openCard(key) {
   const due = dueDate(t['交期']);
   let left = '';
   if (t['狀態'] === DONE) left = '已完成';
-  else if (due) { const d = Math.round((due - today) / DAY); left = d < 0 ? `⚠️ 逾期 ${-d} 天` : d === 0 ? '今天到期' : `還有 ${d} 天`; }
+  else if (due) { const d = Math.round((due - today) / DAY); left = d < 0 ? `逾期 ${-d} 天` : d === 0 ? '今天到期' : `還有 ${d} 天`; }
   const who = t.code === 'other' ? '未指派' : t.code.split(' ')[0];  // 「KIKI 品牌」→ KIKI
   const row = (k, v) => v ? `<div class="field"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>` : '';
   const status = t.pending ? '待派工' : (COL_NAMES[t['狀態']] || t['狀態']);
@@ -522,7 +522,7 @@ function openCard(key) {
       ? '品牌組的案子，請照品牌「視覺需求工單」流程聯絡'
       : t.pending
       ? `還沒派工，請主管在群組打：<b>派 ${esc(t['編號'])} @設計師</b>`
-      : `在有特助狗的群組打：<b>＋要改的內容 @${esc(who)}</b><br>不要直接走過去打斷設計師 🐶`}</div></div></div>`;
+      : `在有特助狗的群組打：<b>＋要改的內容 @${esc(who)}</b><br>不要直接走過去打斷設計師`}</div></div></div>`;
   document.body.classList.add('open');
 }
 function closeCard() { document.body.classList.remove('open'); }
@@ -538,9 +538,9 @@ let COPIED = false;
 async function openFmt(auto) {
   $('fmttext').textContent = FMT;
   const ok = COPIED = await copyFmt();
-  $('fmtclose').textContent = ok ? '知道了' : '📋 複製並關閉';
-  $('fmtok').innerHTML = ok ? '<b>✅ 已經複製到你的剪貼簿了！</b><br>到 LINE 群組直接「貼上」，填好送出就好。'
-    : '按右下「📋 複製並關閉」，格式就會複製到剪貼簿，<br>再到 LINE 群組貼上。';
+  $('fmtclose').textContent = ok ? '知道了' : '複製並關閉';
+  $('fmtok').innerHTML = ok ? '<b>已經複製到你的剪貼簿了！</b><br>到 LINE 群組直接「貼上」，填好送出就好。'
+    : '按右下「複製並關閉」，格式就會複製到剪貼簿，<br>再到 LINE 群組貼上。';
   document.body.classList.add('fmtopen');
 }
 function closeFmt() { document.body.classList.remove('fmtopen'); }
@@ -551,8 +551,8 @@ function openTv() { $('tv').innerHTML = '<video src="ep1.mp4" controls autoplay 
 function closeTv() { document.body.classList.remove('tvopen'); $('tv').innerHTML = ''; }
 document.addEventListener('click', e => {
   if (e.target.id === 'fmtbtn') return openFmt(false);
-  if (e.target.id === 'fmtcopy') return copyFmt().then(ok => { COPIED = COPIED || ok; $('fmtok').innerHTML = ok ? '<b>✅ 已經複製到你的剪貼簿了！</b><br>到 LINE 群組直接「貼上」，填好送出就好。' : '複製失敗，請長按格式手動複製。'; });
-  if (e.target.id === 'fmtclose' && !COPIED) return copyFmt().then(ok => { COPIED = ok; if (ok) { toast('✅ 發案格式已複製，到 LINE 群組貼上就好'); closeFmt(); } else $('fmtok').innerHTML = '複製失敗，請長按格式手動複製。'; });
+  if (e.target.id === 'fmtcopy') return copyFmt().then(ok => { COPIED = COPIED || ok; $('fmtok').innerHTML = ok ? '<b>已經複製到你的剪貼簿了！</b><br>到 LINE 群組直接「貼上」，填好送出就好。' : '複製失敗，請長按格式手動複製。'; });
+  if (e.target.id === 'fmtclose' && !COPIED) return copyFmt().then(ok => { COPIED = ok; if (ok) { toast('發案格式已複製，到 LINE 群組貼上就好'); closeFmt(); } else $('fmtok').innerHTML = '複製失敗，請長按格式手動複製。'; });
   if (e.target.id === 'fmtclose' || (e.target.id === 'shade' && document.body.classList.contains('fmtopen'))) return closeFmt();
   if (e.target.id === 'howto') return openTv();
   if (e.target.id === 'tvclose' || (e.target.id === 'shade' && document.body.classList.contains('tvopen'))) return closeTv();
