@@ -188,8 +188,9 @@
   .gwin > h2 .dot { width: 10px; height: 10px; border: 1px solid var(--ink); }
   .gscroll { overflow-x: auto; }
   .grid { display: grid; position: relative; min-width: max-content; }
+  :root { --labw: 230px; }
   .lab { position: sticky; left: 0; z-index: 2; background: var(--win); border-right: 1.5px solid var(--ink); padding: 6px 10px; font-size: 13px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 230px; border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); cursor: pointer; }
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: var(--labw); border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); cursor: pointer; }
   .lab b { font-size: 14px; } .lab small { color: var(--muted); margin-left: 6px; }
   .day { font-size: 11px; overflow: visible; position: relative; text-align: center; border-bottom: 1.5px solid var(--ink); padding: 4px 0; white-space: nowrap; }
   .day.we { background: color-mix(in srgb, var(--ink) 7%, transparent); }
@@ -215,6 +216,43 @@
   .fmt pre { background: var(--seg); border: 1.5px solid var(--ink); padding: 10px 12px; margin: 0 0 12px; font: 14px/1.6 inherit; font-family: inherit; white-space: pre-wrap; user-select: all; -webkit-user-select: all; }
   .fmt .tips { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
   .fmt .btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ===== 篩選＋搜尋 ===== */
+  .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: 1400px; margin: 14px auto 0; }
+  .filters .hits { font-size: 13px; }
+  .filters .hits b { font-size: 16px; margin: 0 2px; font-variant-numeric: tabular-nums; }
+  .filters .hits .x { margin-left: 8px; padding: 2px 8px; font-size: 12px; }
+  .bar.hit { outline: 3px solid #fdb827; outline-offset: 1px; }
+  .lab mark { background: #fdb827; color: #000; padding: 0 1px; }
+
+  /* ===== 手機版 ===== */
+  @media (max-width: 700px) {
+    :root { --labw: 124px; }
+    header { position: static; padding: 12px 12px 10px; }
+    .top { gap: 6px; align-items: center; }
+    h1 { font-size: 22px; gap: 8px; flex: 1 1 100%; } h1::before { width: 16px; height: 19px; }
+    .top .spacer { display: none; }
+    .top .ghost { padding: 5px 9px; font-size: 13px; }
+    #at { display: none; }
+    .people { margin-top: 10px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .people::-webkit-scrollbar { display: none; }
+    .chip { padding: 7px 12px; }
+    .filters, .tools { gap: 8px; margin-top: 10px; }
+    .filters input[type=search] { order: -1; flex: 1 1 100%; font-size: 16px; } /* 16px：iOS 才不會自動放大 */
+    .eps button { padding: 6px 10px; font-size: 13px; }
+    .legend { gap: 6px 12px; font-size: 11px; }
+    .legend i { width: 16px; }
+    main { padding: 12px 8px 40px; }
+    .lab { padding: 6px 6px; font-size: 12px; }
+    .lab b { font-size: 12px; }
+    .lab small { display: block; margin: 0; font-size: 10px; line-height: 1.2; }
+    .gwin { margin-bottom: 14px; }
+    .drawer { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 86vh; padding: 18px 16px;
+      transform: translateY(calc(100% + 24px)); }
+    .open .drawer { transform: none; }
+    .drawer h3 { font-size: 20px; padding-right: 70px; }
+    .toast { bottom: 16px; max-width: calc(100% - 32px); }
+  }
 </style>
 </head>
 <body>
@@ -229,6 +267,11 @@
     <button class="ghost" id="reload" title="重新整理">更新 <span id="at"></span></button>
   </div>
   <div class="people" id="people"></div>
+  <div class="filters">
+    <input type="search" id="q" placeholder="搜尋單號、名稱、類型、設計師…" autocomplete="off">
+    <div class="eps" id="stf"></div>
+    <span class="hits" id="hits"></span>
+  </div>
   <div class="tools">
     <div class="eps" id="span"></div>
     <div class="legend"><span><i style="background:#6495ED"></i>發案 → 交期</span><span><i style="background:color-mix(in srgb, #6495ED 35%, white)"></i>修改／＋任務</span><span><i style="background:#6495ED;opacity:.5"></i>已完成（發案 → 完成）</span>
@@ -255,7 +298,7 @@
 // ===== 設定 =====
 const API_URL = 'https://script.google.com/macros/s/AKfycbz1RDARfY94PHB3gZFwCx-GvxNYlBxk9T-dZJUxFmAbYNphZ3xdWU9xzNucqnZodnbE/exec';
 // ================
-let DATA = null, WHO = 'ALL', SPAN = 35;
+let DATA = null, WHO = 'ALL', SPAN = 35, Q = '', STF = 'all';
 const $ = id => document.getElementById(id);
 const esc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -318,6 +361,28 @@ function color(code) { return (DATA.members.find(m => m.code === code) || {}).co
 
 
 const SPANS = [[14, '2 週'], [35, '1 個月'], [91, '3 個月']];
+// ===== 篩選：狀態＋關鍵字（空白分開 = 每個字都要有）=====
+const STFS = [['all', '全部'], ['open', '未完成'], ['late', '逾期'], ['done', '已完成']];
+function isLate(t) {
+  if (t['狀態'] === DONE) return false;
+  const d = dueDate(t['交期']), today = new Date(); today.setHours(0, 0, 0, 0);
+  return !!d && d < today;
+}
+function hit(t) {
+  if (STF === 'open' && t['狀態'] === DONE) return false;
+  if (STF === 'done' && t['狀態'] !== DONE) return false;
+  if (STF === 'late' && !isLate(t)) return false;
+  if (!Q) return true;
+  const hay = [title(t), t['編號'], t['案件類型'], groupName(t.code), t.code, t.pending ? '待派工' : COL_NAMES[t['狀態']] || t['狀態'], t['交期']]
+    .join(' ').toLowerCase();
+  return Q.split(/\s+/).every(w => hay.includes(w));
+}
+const filtering = () => !!Q || STF !== 'all';
+const mark = s => {  // 標出搜尋到的字（先切再跳脫，不會切到 HTML）
+  const ws = Q ? Q.split(/\s+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) : [];
+  if (!ws.length) return esc(s);
+  return String(s || '').split(new RegExp(`(${ws.join('|')})`, 'ig')).map((p, i) => i % 2 ? `<mark>${esc(p)}</mark>` : esc(p)).join('');
+};
 const DAY = 864e5;
 const parseDT = s => { const m = String(s || '').match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
 const ymd = d => `${d.getMonth() + 1}/${d.getDate()}`;
@@ -336,16 +401,18 @@ function render(data) {
 function draw() {
   const open = DATA.tasks.filter(t => t['狀態'] !== DONE);
   // IAN、JOCELYN、PAT 很少做遊戲：收進最後的「其他」，點一下才展開，三個人排在一起（Karen 2026-10-14）
-  const cnt = code => open.filter(t => t.code === code).length;
+  const base = filtering() ? DATA.tasks.filter(hit) : open;  // 有篩選時，人名旁的數字＝符合的件數
+  const cnt = code => base.filter(t => t.code === code).length;
   const tuck = m => RARE.indexOf(m.code) >= 0 && WHO !== m.code;  // 三個人一律收進「其他」
   const tucked = DATA.members.filter(tuck);
   const chip = m => {
-    const n = m.code === 'ALL' ? open.length : cnt(m.code);
+    const n = m.code === 'ALL' ? base.length : cnt(m.code);
     const label = m.code === 'ALL' ? '全部' : groupName(m.code);
     return `<button class="chip ${WHO === m.code ? 'on' : ''}" data-who="${m.code}">${m.code === 'ALL' ? '' : `<span class="dot" style="background:${m.color}"></span>`}${label}<span class="n">${n}</span></button>`;
   };
   $('people').innerHTML = [{ code: 'ALL' }].concat(DATA.members.filter(m => SHOW_RARE || !tuck(m))).map(chip).join('')
     + (tucked.length ? `<button class="chip" data-rare="1">${SHOW_RARE ? '收起' : '其他 ' + tucked.length + ' 人 ▸'}</button>` : '');
+  $('stf').innerHTML = STFS.map(([k, l]) => `<button data-stf="${k}" class="${STF === k ? 'cur' : ''}">${l}</button>`).join('');
   $('span').innerHTML = SPANS.map(([d, l]) => `<button data-span="${d}" class="${SPAN === d ? 'cur' : ''}">${l}</button>`).join('');
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -360,13 +427,16 @@ function draw() {
     head.push(`<div class="day ${we ? 'we' : ''} ${d.getDate() === 1 ? 'mon' : ''}">${txt}</div>`);
   }
   const groups = DATA.members.filter(m => WHO === 'ALL' || m.code === WHO);
+  let shown = 0, outside = 0;
   const html = groups.map(m => {
-    const list = DATA.tasks.filter(t => t.code === m.code).map(t => {
+    const mine = DATA.tasks.filter(t => t.code === m.code && hit(t));
+    const list = mine.map(t => {
       const s = parseDT(t['發案時間'] || t['派工時間']), due = dueDate(t['交期']), fin = t['狀態'] === DONE ? parseDT(t['完成時間']) : null;
       const e = fin || due || (today > s ? today : s);
       return { t, s, e, due, fin };
     }).filter(x => x.s && (x.e >= start || (!x.fin && x.due && x.due < today)) && x.s < end)
       .sort((a, b) => a.s - b.s);
+    shown += list.length; outside += mine.length - list.length;
     if (!list.length) return '';
     const rows = list.map(({ t, s, e, due, fin }) => {
       const col = d => Math.max(0, Math.min(days, Math.round((d - start) / DAY)));
@@ -377,16 +447,27 @@ function draw() {
       const cells = Array.from({ length: days }, (_, i) => { const d = new Date(+start + i * DAY); return `<div class="cell ${d.getDay() % 6 === 0 ? 'we' : ''}"></div>`; }).join('');
       const k = esc(t.code + '|' + t['編號']);
       const rev = !t['案件類型'];  // ＋任務（多半是修改）用淺色，新規用深色
-      return `<div class="lab" data-k="${k}" title="${tip}"><b>${esc(title(t))}</b><small>${esc(COL_NAMES[t['狀態']] || t['狀態'] || '')}</small></div>`
+      return `<div class="lab" data-k="${k}" title="${tip}"><b>${mark(title(t))}</b><small>${esc(COL_NAMES[t['狀態']] || t['狀態'] || '')}</small></div>`
         + `<div style="grid-column:2 / span ${days};position:relative;display:grid;grid-template-columns:repeat(${days},${W}px)">${cells}`
-        + `<div class="bar ${fin ? 'done' : ''} ${rev ? 'rev' : ''}" data-k="${k}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${rev ? `color-mix(in srgb, ${m.color} 35%, white)` : m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
+        + `<div class="bar ${fin ? 'done' : ''} ${rev ? 'rev' : ''} ${Q ? 'hit' : ''}" data-k="${k}" title="${tip}" style="left:${a * W}px;width:${(b - a) * W - 4}px;background:${rev ? `color-mix(in srgb, ${m.color} 35%, white)` : m.color}">${esc(COL_NAMES[t['狀態']] || '')} ${esc(title(t))}</div>${late}</div>`;
     }).join('');
-    const tl = Math.round((today - start) / DAY) * W + 230;
-    const shut = WHO === 'ALL' && isFolded(m.code);
-    return `<section class="gwin ${shut ? 'folded' : ''}"><h2 class="fold" data-fold="${m.code}" title="點一下收合／展開"><span><i class="arrow">${shut ? '▸' : '▾'}</i><i class="dot" style="background:${m.color}"></i>${groupName(m.code)}</span><span>${list.length} 件</span></h2>
-      ${shut ? '' : `<div class="gscroll"><div class="grid" style="grid-template-columns:230px repeat(${days},${W}px)">${head.join('')}${rows}<div class="today" style="left:${tl}px"></div></div></div>`}</section>`;
+    const tl = Math.round((today - start) / DAY) * W;
+    // 有搜尋時，預設收合的組也打開（手動收過的照舊）
+    const shut = WHO === 'ALL' && (Q ? FOLD[m.code] === true : isFolded(m.code));
+    return `<section class="gwin ${shut ? 'folded' : ''}" data-g="${esc(m.code)}"><h2 class="fold" data-fold="${m.code}" title="點一下收合／展開"><span><i class="arrow">${shut ? '▸' : '▾'}</i><i class="dot" style="background:${m.color}"></i>${groupName(m.code)}</span><span>${list.length} 件</span></h2>
+      ${shut ? '' : `<div class="gscroll"><div class="grid" style="grid-template-columns:var(--labw) repeat(${days},${W}px)">${head.join('')}${rows}<div class="today" style="left:calc(var(--labw) + ${tl}px)"></div></div></div>`}</section>`;
   }).join('');
-  $('gantt').innerHTML = html || '<div class="loading">這段時間沒有工單</div>';
+  const more = outside ? `另有 <b>${outside}</b> 件不在這段時間內${SPAN < 91 ? '，可以切到「3 個月」看看' : ''}` : '';
+  $('hits').innerHTML = filtering()
+    ? `符合 <b>${shown}</b> 件${more ? '・' + more : ''}<button class="ghost x" id="clearf">清除篩選</button>` : '';
+  // 每組的左右捲動位置：重畫（自動更新、篩選）時保留；第一次打開就捲到「今天」前兩天（手機看得到今天）
+  const keep = {};
+  document.querySelectorAll('.gwin').forEach(g => { const sc = g.querySelector('.gscroll'); if (sc) keep[g.dataset.g] = sc.scrollLeft; });
+  if (draw.span !== SPAN) Object.keys(keep).forEach(k => delete keep[k]);
+  draw.span = SPAN;
+  $('gantt').innerHTML = html || `<div class="loading">${filtering() ? '這段時間沒有符合的工單' + (more ? '<br>' + more : '') : '這段時間沒有工單'}</div>`;
+  const toToday = matchMedia('(max-width: 700px)').matches ? Math.max(0, (pre - 2) * W) : 0;  // 只有手機才自動捲
+  document.querySelectorAll('.gwin').forEach(g => { const sc = g.querySelector('.gscroll'); if (sc) sc.scrollLeft = g.dataset.g in keep ? keep[g.dataset.g] : toToday; });
 }
 // ===== 點工單看詳細（公開頁：只有單號、類型、設計師、狀態、日期，不含客戶和需求內容）=====
 function openCard(key) {
@@ -449,8 +530,12 @@ document.addEventListener('click', e => {
   if (chip && chip.dataset.rare) { SHOW_RARE = !SHOW_RARE; return draw(); }
   if (chip) { WHO = chip.dataset.who; return draw(); }
   const sp = e.target.closest('[data-span]'); if (sp) { SPAN = +sp.dataset.span; return draw(); }
+  const sf = e.target.closest('[data-stf]'); if (sf) { STF = sf.dataset.stf; return draw(); }
+  if (e.target.id === 'clearf') { Q = ''; STF = 'all'; $('q').value = ''; return draw(); }
   if (e.target.closest('#reload')) return load();
 });
+$('q').addEventListener('input', () => { Q = $('q').value.trim().toLowerCase(); DATA && draw(); });
+$('q').addEventListener('keydown', e => { if (e.key === 'Escape' && $('q').value) { e.stopPropagation(); $('q').value = ''; Q = ''; DATA && draw(); } });
 setInterval(() => document.visibilityState === 'visible' && load(), 2 * 60 * 1000);
 load();
 </script>
