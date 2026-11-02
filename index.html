@@ -198,6 +198,14 @@
   .drow .meta { grid-row: 1 / span 2; grid-column: 3; display: flex; gap: 4px; font-size: 12px; align-self: center; }
   .mtabs button.over { background: var(--col); box-shadow: inset 0 0 0 3px var(--ink); }
 
+
+  /* ===== 舊資料提示 ===== */
+  .stale { max-width: 1400px; margin: 0 auto 16px; padding: 7px 12px; background: #fdb827; color: #000; border: 1.5px solid var(--ink);
+    box-shadow: var(--hard); font-size: 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .stale[hidden] { display: none; }
+  .stale .ghost { padding: 2px 10px; font-size: 12px; }
+  .people:empty, .eps:empty { display: none; }  /* 資料還沒來時不要露出空框 */
+
   /* ===== 手機版 ===== */
   @media (max-width: 900px) {
     header { position: static; padding: 12px 12px 10px; }
@@ -213,6 +221,7 @@
     .row2 { gap: 10px; margin-top: 10px; }
     .stats { gap: 14px; font-size: 12px; } .stats b { font-size: 16px; margin-left: 4px; }
     main { padding: 0 12px 40px; }
+    .stale { margin: 10px 0 0; }
     /* 看板一次只看一欄，用上面的分頁切換；長按卡片可以拖到別的分頁 */
     .mtabs { display: flex; position: sticky; top: 0; z-index: 4; margin: 0 -12px 12px; width: calc(100% + 24px);
       border-left: 0; border-right: 0; box-shadow: 0 2px 0 var(--ink); }
@@ -263,7 +272,7 @@
     <div class="stats" id="stats"></div>
   </div>
 </header>
-<main><div class="eps mtabs" id="mtabs"></div><div class="loading" id="board">載入中…</div></main>
+<main><div class="stale" id="stale" hidden></div><div class="eps mtabs" id="mtabs"></div><div class="loading" id="board">載入中…</div></main>
 <div class="shade" id="shade"></div>
 <aside class="drawer" id="drawer"></aside>
 <div class="tvwrap" id="tvwrap">
@@ -295,6 +304,7 @@
 const CLIENT_ID = '640400742388-6l54t8snipni2idi4125kmk5pjvaki76.apps.googleusercontent.com';
 const API_URL = 'https://script.google.com/macros/s/AKfycbz1RDARfY94PHB3gZFwCx-GvxNYlBxk9T-dZJUxFmAbYNphZ3xdWU9xzNucqnZodnbE/exec';
 // ================
+const CACHE_KEY = 'boardCache1';
 let TOKEN = null;
 try { TOKEN = sessionStorage.getItem('idToken'); } catch (e) {}
 let DATA = null, WHO = 'ALL';
@@ -307,11 +317,31 @@ const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" targe
 const DONE = '✅ 已完成';
 const COL_NAMES = { '待處理': '待處理', '進行中': '進行中', '待審': '待審', [DONE]: '已完成' };
 
+// ===== 先秀上次的資料（存在這台裝置的瀏覽器），後台資料到了再換成最新的（Karen 2026-11-02）=====
+let STALE = 0, SHOWN_AT = 0;  // STALE：畫面是舊資料時＝存的時間；SHOWN_AT：畫面資料是什麼時候的
+const cacheGet = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) { return null; } };
+const cacheSet = d => { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data: d })); } catch (e) {} };
+const cacheClear = () => { try { localStorage.removeItem(CACHE_KEY); } catch (e) {} };
+const ago = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? '剛剛' : m < 60 ? m + ' 分鐘前' : m < 1440 ? Math.round(m / 60) + ' 小時前' : Math.round(m / 1440) + ' 天前'; };
+function setStale(msg) { const n = $('stale'); n.hidden = !msg; n.innerHTML = msg || ''; }
+function fresh(data) { if (data) cacheSet(data); STALE = 0; SHOWN_AT = Date.now(); setStale(''); render(data); }
+function showCache() {
+  const c = cacheGet();
+  if (!c || !c.data) return;
+  try { STALE = SHOWN_AT = c.at; render(c.data); setStale(`🐶 先顯示 ${ago(c.at)}的資料，正在更新…`); }
+  catch (e) { cacheClear(); STALE = 0; DATA = null; }
+}
+// 更新失敗但畫面上已經有資料：不要清掉，顯示提示＋再試一次
+function staleFail(msg) {
+  setStale(`⚠️ ${esc(msg)}，目前顯示的是 ${ago(SHOWN_AT)}的資料 <button class="ghost" id="retry">再試一次</button>`);
+  $('at').textContent = '';
+}
+
 function load() {
   $('at').textContent = '…';
   clearTimeout(load.slow);
-  load.slow = setTimeout(() => { if (!DATA) showError('等太久了，按右上角「更新」再試一次'); }, 25000);
-  api({ action: 'board' }).then(render, fail);
+  load.slow = setTimeout(() => { if (!DATA) showError('等太久了，按右上角「更新」再試一次'); else if (STALE) staleFail('等太久了'); }, 25000);
+  api({ action: 'board' }).then(fresh, fail);
 }
 // GAS 用 text/plain 收 JSON，避免跨網域預檢
 async function api(body) {
@@ -327,10 +357,11 @@ function onSignIn(resp) {
   TOKEN = resp.credential;
   try { sessionStorage.setItem('idToken', TOKEN); } catch (e) {}
   $('login').hidden = true; $('app').hidden = false;
+  if (!DATA) showCache();
   load();
 }
 function signOut(msg) {
-  TOKEN = null; DATA = null;
+  TOKEN = null; DATA = null; STALE = 0; setStale('');
   try { sessionStorage.removeItem('idToken'); } catch (e) {}
   $('app').hidden = true; $('login').hidden = false;
   $('loginMsg').textContent = msg || '';
@@ -342,7 +373,7 @@ function initLogin() {
   google.accounts.id.renderButton($('gbtn'), { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', locale: 'zh-TW' });
   if (!TOKEN) google.accounts.id.prompt();
 }
-function fail(e) { if (!TOKEN) return; showError(e && e.message || e); $('at').textContent = ''; }
+function fail(e) { if (!TOKEN) return; const msg = e && e.message || e; if (DATA) return staleFail('更新失敗：' + msg); showError(msg); $('at').textContent = ''; }
 function showError(msg) { $('board').className = 'loading'; $('board').textContent = '出錯了：' + msg; }
 window.onerror = (msg, src, line) => showError(msg + '（第 ' + line + ' 行）');
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
@@ -510,11 +541,12 @@ function setStatus(st) {
 // 先在畫面上移過去，背景再寫進試算表；失敗就移回來
 function changeStatus(t, st) {
   if (!t || t.pending || t['狀態'] === st) return;
+  if (STALE) return toast('資料還在更新，等一下再改狀態');  // 舊資料不能改，免得改錯列
   const before = t['狀態'];
   t['狀態'] = st; draw();
   toast(`#${t['編號']} → ${COL_NAMES[st]}`);
   api({ action: 'status', code: t.code, row: t.row, no: t['編號'], status: st })
-    .then(render, e => { t['狀態'] = before; draw(); toast('沒改成功：' + e.message); });
+    .then(fresh, e => { t['狀態'] = before; draw(); toast('沒改成功：' + e.message); });
 }
 
 // ===== 拖曳卡片換欄：滑鼠直接拖；手機長按一下再拖 =====
@@ -603,14 +635,15 @@ document.addEventListener('click', e => {
   if (e.target.id === 'close' || e.target.id === 'shade') return closeCard();
   if (e.target.id === 'moreDone') { DONE_LIMIT += 100; return draw(); }
   if (e.target.closest('#reload')) return load();
-  if (e.target.id === 'logout') return signOut();
+  if (e.target.id === 'logout') { cacheClear(); return signOut(); }  // 登出就清掉存在這台的工單
+  if (e.target.id === 'retry') return load();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCard(); closeTv(); } });
 $('q').addEventListener('input', () => { DONE_LIMIT = 100; DATA && draw(); });
 window.addEventListener('hashchange', () => { const v = location.hash === '#done' ? 'done' : 'board'; if (v !== VIEW && DATA) setView(v); });
 setInterval(() => TOKEN && document.visibilityState === 'visible' && load(), 2 * 60 * 1000);
 initLogin();
-if (TOKEN) { $('login').hidden = true; $('app').hidden = false; load(); }
+if (TOKEN) { $('login').hidden = true; $('app').hidden = false; showCache(); load(); }
 </script>
 </body>
 </html>
