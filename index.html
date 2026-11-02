@@ -328,7 +328,7 @@ function fresh(data) { if (data) cacheSet(data); STALE = 0; SHOWN_AT = Date.now(
 function showCache() {
   const c = cacheGet();
   if (!c || !c.data) return;
-  try { STALE = SHOWN_AT = c.at; render(c.data); setStale(`🐶 先顯示 ${ago(c.at)}的資料，正在更新…`); }
+  try { STALE = SHOWN_AT = c.at; render(c.data); setStale(`先顯示 ${ago(c.at)}的資料，正在更新…`); }
   catch (e) { cacheClear(); STALE = 0; DATA = null; }
 }
 // 更新失敗但畫面上已經有資料：不要清掉，顯示提示＋再試一次
